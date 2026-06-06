@@ -1,0 +1,45 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend starten",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "group": "app",
+        "panel": "dedicated",
+        "reveal": "always",
+        "label": "🟢 Backend (Port 3001)"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend starten",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "presentation": {
+        "group": "app",
+        "panel": "dedicated",
+        "reveal": "always",
+        "label": "🔵 Frontend (Port 3000)"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🚀 App starten (Backend + Frontend)",
+      "dependsOn": ["Backend starten", "Frontend starten"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

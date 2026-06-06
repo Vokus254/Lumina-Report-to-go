@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(grep -r \"section-text\\\\|ai/section\" server.ts)",
+      "Bash(ls services/ renderers/)"
+    ]
+  }
+}

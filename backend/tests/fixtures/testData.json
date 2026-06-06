@@ -1,0 +1,212 @@
+{
+  "stammdaten": {
+    "firmenname": "Lumina AG",
+    "sitz": "Duisburg",
+    "handelsregister": "HRB 343556",
+    "gruendungsjahr": "2024",
+    "geschaeftsjahr": "2025",
+    "branche": "Industrieautmation",
+    "mitarbeiter_standorte": "12 Standorte in 5 Ländern",
+    "boerse": "Prime Standard, Frankfurt",
+    "isin": "DE000ABC1234",
+    "ticker": "LUM",
+    "anzahl_aktien": 1000,
+    "abschlussprufer": "KPMG AG Wirtschaftsprüfungsgesellschaft, Frankfurt am Main"
+  },
+  "segmente": [
+    {
+      "name": "KI-Beratung",
+      "umsatz": 19600,
+      "vorjahr_umsatz": 15177.8
+    },
+    {
+      "name": "IT-Beratung",
+      "umsatz": 29600,
+      "vorjahr_umsatz": 25177.8
+    },
+    {
+      "name": "Abschlussprüfung",
+      "umsatz": 21267,
+      "vorjahr_umsatz": 16844.8
+    },
+    {
+      "name": "Versicherungsvermittlung",
+      "umsatz": 27933,
+      "vorjahr_umsatz": 23510.8
+    },
+    {
+      "name": "Bauplanung",
+      "umsatz": 24600,
+      "vorjahr_umsatz": 20177.8
+    }
+  ],
+  "guv": {
+    "umsatzerloese": 123000,
+    "bestandsveraenderung": 45,
+    "eigenleistungen": 23,
+    "sonstige_ertraege": 30000,
+    "material_roh": 45666,
+    "material_dienst": 3400,
+    "loehne": 29898,
+    "sozialabgaben": 5979.6,
+    "abschreibungen": 5000,
+    "sonstige_aufwendungen": 45000,
+    "beteiligungsertraege": 100,
+    "zinsertraege": 450,
+    "abschr_finanzanlagen": 45,
+    "zinsaufwendungen": 400,
+    "steuern_ertrag": 1822.9399999999996,
+    "sonstige_steuern": 444
+  },
+  "bilanz": {
+    "immat_lizenzen": 7090,
+    "immat_selbst": 3982,
+    "immat_anzahlungen": 7171,
+    "sach_gebaeude": 4441,
+    "sach_maschinen": 5031,
+    "sach_ausstattung": 345,
+    "sach_anbau": 2049,
+    "fin_anteilsvbu": 3928,
+    "fin_ausleihvbu": 8268,
+    "fin_beteiligungen": 5482,
+    "vorr_rhb": 6672,
+    "vorr_unfertig": 3830,
+    "vorr_fertig": 3000,
+    "vorr_anzahlungen": 6204,
+    "ford_llg": 8979,
+    "ford_vbu": 1833,
+    "ford_sonstige": 7423,
+    "wertpapiere_umlauf": 6375,
+    "liquide_mittel": 6622,
+    "aktiver_rao": 2466,
+    "aktive_latente_steuern": 5381,
+    "gezeichnetes_kapital": 3183,
+    "kapitalruecklage": 5959,
+    "gesetzliche_ruecklage": 674,
+    "andere_gewinnruecklagen": 8031,
+    "bilanzgewinn": 21913.799999999996,
+    "pensionsrueckstellungen": 2545,
+    "steuerrueckstellungen": 2827,
+    "sonstige_rueckstellungen": 12686,
+    "anleihen": 5178,
+    "verbindlichkeiten_kreditinstitute": 6972,
+    "erhaltene_anzahlungen": 6366,
+    "verbindlichkeiten_llg": 5359,
+    "verbindlichkeiten_vbu": 6302,
+    "sonstige_verbindlichkeiten": 15022.2,
+    "passiver_rao": 3554,
+    "einstellung_ruecklagen": 0,
+    "gewinnvortrag": 0,
+    "vj_immat_lizenzen": 5017,
+    "vj_immat_selbst": 7534,
+    "vj_immat_anzahlungen": 5644,
+    "vj_sach_gebaeude": 5645,
+    "vj_sach_maschinen": 2007,
+    "vj_sach_ausstattung": 12,
+    "vj_sach_anbau": 3583,
+    "vj_fin_anteilsvbu": 7078,
+    "vj_fin_ausleihvbu": 2326,
+    "vj_fin_beteiligungen": 7302,
+    "vj_vorr_rhb": 5735,
+    "vj_vorr_unfertig": 6751,
+    "vj_vorr_fertig": 138,
+    "vj_vorr_anzahlungen": 7394,
+    "vj_ford_llg": 3551,
+    "vj_ford_vbu": 3567,
+    "vj_ford_sonstige": 6696,
+    "vj_wertpapiere": 7735,
+    "vj_liquide_mittel": 8750,
+    "vj_aktiver_rao": 6813,
+    "vj_aktive_latente": 8079,
+    "vj_ez_kapital": 7534,
+    "vj_kapruecklage": 2229,
+    "vj_gesetzliche_ruecklage": 6688,
+    "vj_andere_gewinnrueckl": 7086,
+    "vj_bilanzgewinn": 5951.339999999998,
+    "vj_pensionsrueck": 8778,
+    "vj_steuerrueck": 7619,
+    "vj_sonstige_rueck": 11687,
+    "vj_anleihen": 4028,
+    "vj_verb_kreditinst": 6142,
+    "vj_erh_anzahlungen": 3051,
+    "vj_verb_llg": 6141,
+    "vj_verb_vbu": 2641,
+    "vj_sonst_verb": 28243.66,
+    "vj_passiver_rao": 3538,
+    "vj_immat_vw": 18195,
+    "vj_sachanlagen": 11247,
+    "vj_finanzanlagen": 16706,
+    "vj_anlagevermoegen": 46148,
+    "vj_vorraete": 20018,
+    "vj_forderungen": 13814,
+    "vj_umlaufvermoegen": 50317,
+    "vj_bilanzsumme": 111357,
+    "vj_eigenkapital": 29488.339999999997,
+    "vj_rueckstellungen": 28084,
+    "vj_verbindlichkeiten": 50246.66,
+    "vj_gewinnruecklagen": 13774,
+    "immat_vw": 18243,
+    "sachanlagen": 11866,
+    "finanzanlagen": 17678,
+    "vorraete": 19706,
+    "forderungen_gesamt": 18235,
+    "eigenkapital_gesamt": 39760.799999999996,
+    "bilanzsumme": 106572
+  },
+  "kennzahlen": {
+    "vorjahr_umsatz": 100889,
+    "vj_sonstige_ertraege": 27000,
+    "vj_material_roh": 34999,
+    "vj_material_dienst": 3000,
+    "vj_materialaufwand": 37999,
+    "vj_loehne": 29787,
+    "vj_sozialabgaben": 5957.400000000001,
+    "vj_personalaufwand": 35744.4,
+    "vj_abschreibungen": 4000,
+    "vj_sonstige_aufwend": 43000,
+    "vorjahr_ebitda": 54215.6,
+    "vorjahr_ebit": 7215.5999999999985,
+    "vj_zinsaufwand": 300,
+    "vorjahr_jahresueber": 5951.339999999998,
+    "mitarbeiter": 345,
+    "ergebnis_je_aktie": 0,
+    "dividende_je_aktie": 0,
+    "free_cashflow": 0,
+    "prueferhonorar_pruefung": 89,
+    "prueferhonorar_sonstig": 3
+  },
+  "organe": {
+    "vorstand": [
+      {
+        "name": "Dipl.-Kfm. Volker Kusch",
+        "funktion": "Vorstandsvorsitzende/r (CEO)",
+        "bestellt_bis": ""
+      },
+      {
+        "name": "Peter Müller",
+        "funktion": "Finanzvorstand/in (CFO)",
+        "bestellt_bis": ""
+      },
+      {
+        "name": "Ralf Meier",
+        "funktion": "CTO / COO / CPO",
+        "bestellt_bis": ""
+      }
+    ],
+    "aufsichtsrat": [
+      {
+        "name": "Dr. Miroslav Klose",
+        "funktion": "Aufsichtsratsvorsitzende/r"
+      },
+      {
+        "name": "Dr. Gerd Müller",
+        "funktion": "Stellv. Vorsitzende/r"
+      },
+      {
+        "name": "Dr. Thomas Schulze",
+        "funktion": "Arbeitnehmervertreter/in"
+      }
+    ]
+  },
+  "beteiligungen": []
+}

@@ -1,0 +1,35 @@
+{
+  "lagebericht": {
+    "geschaeftsmodell": "Die Lumina AG ist ein führendes Unternehmen im Bereich Industrieautomation mit Sitz in Duisburg. Die Gesellschaft entwickelt und vertreibt innovative Automatisierungslösungen für die verarbeitende Industrie.",
+    "strategie": "Die strategische Ausrichtung der Lumina AG zielt auf nachhaltiges Wachstum durch Digitalisierung und Internationalisierung. Schwerpunkte bilden der Ausbau des KI-Beratungssegments sowie die Erschließung neuer Märkte in Osteuropa.",
+    "gesamtwirtschaft": "Das Geschäftsjahr 2025 war geprägt von einer moderaten konjunkturellen Erholung im Industriesektor. Die Nachfrage nach Automatisierungslösungen blieb trotz geopolitischer Unsicherheiten auf hohem Niveau.",
+    "geschaeftsverlauf": "Der Geschäftsverlauf des Jahres 2025 verlief planmäßig. Der Umsatz konnte gegenüber dem Vorjahr deutlich gesteigert werden, was auf die erfolgreiche Umsetzung der Wachstumsstrategie zurückzuführen ist.",
+    "ertragslage": "Die Ertragslage der Gesellschaft hat sich im Berichtsjahr positiv entwickelt. Das EBIT stieg auf 18.124 TEUR, was einer EBIT-Marge von 14,7 Prozent entspricht.",
+    "finanzlage": "Die Finanzlage der Gesellschaft ist solide. Die Eigenkapitalquote beträgt 37,3 Prozent. Die liquiden Mittel in Höhe von 6.622 TEUR sichern die kurzfristige Zahlungsfähigkeit.",
+    "vermoegenslage": "Die Vermögenslage zeigt eine ausgewogene Struktur. Die Bilanzsumme beläuft sich auf 106.572 TEUR mit einem Anlagevermögen von 47.787 TEUR.",
+    "nachtragsbericht": "Nach dem Bilanzstichtag sind keine wesentlichen berichtspflichtigen Ereignisse eingetreten, die die Vermögens-, Finanz- und Ertragslage der Gesellschaft wesentlich beeinflussen würden.",
+    "risiken": "Die wesentlichen Risiken umfassen Markt- und Wettbewerbsrisiken, technologische Risiken sowie operative Risiken. Das Risikomanagementsystem der Gesellschaft gewährleistet eine systematische Überwachung.",
+    "chancen": "Chancen ergeben sich insbesondere aus der steigenden Nachfrage nach KI-gestützten Automatisierungslösungen sowie dem Ausbau internationaler Vertriebskanäle.",
+    "prognose": "Für das Geschäftsjahr 2026 erwartet der Vorstand eine weitere Steigerung der Umsatzerlöse um circa 8 bis 12 Prozent sowie eine stabile EBIT-Marge im Bereich von 13 bis 16 Prozent."
+  },
+  "anhang": {
+    "rechtliche_grundlagen": "Die Lumina AG ist eine Aktiengesellschaft deutschen Rechts mit Sitz in Duisburg, eingetragen im Handelsregister des Amtsgerichts Duisburg unter HRB 343556.",
+    "bilanzierungsgrundsaetze_intro": "Der Jahresabschluss wurde nach den Vorschriften des Handelsgesetzbuches (HGB) sowie des Aktiengesetzes (AktG) aufgestellt. Die Bewertung erfolgt nach dem Anschaffungskostenprinzip.",
+    "bewertung_immaterielle": "Entgeltlich erworbene immaterielle Vermögensgegenstände werden zu Anschaffungskosten bewertet und planmäßig linear abgeschrieben.",
+    "bewertung_sachanlagen": "Sachanlagen werden zu Anschaffungs- oder Herstellungskosten, vermindert um planmäßige lineare Abschreibungen, bewertet.",
+    "bewertung_vorraete": "Vorräte werden zum niedrigeren Wert aus Anschaffungs- bzw. Herstellungskosten und Nettoveräußerungswert bewertet.",
+    "bewertung_forderungen": "Forderungen werden zum Nennwert angesetzt. Erkennbare Risiken werden durch Einzelwertberichtigungen berücksichtigt.",
+    "bewertung_rueckstellungen": "Rückstellungen werden in Höhe des nach vernünftiger kaufmännischer Beurteilung notwendigen Erfüllungsbetrages angesetzt.",
+    "vorraete_kommentar": "Der Bestand an Vorräten hat sich im Vergleich zum Vorjahr leicht verringert. Die Roh-, Hilfs- und Betriebsstoffe sowie unfertigen Erzeugnisse sind bestandsmäßig ausreichend dotiert.",
+    "forderungen_kommentar": "Die Forderungen aus Lieferungen und Leistungen sind durch Einzelwertberichtigungen auf ihren beizulegenden Wert abgewertet. Fremdwährungsforderungen werden zum Devisenkassamittelkurs bewertet.",
+    "eigenkapital_kommentar": "Das Eigenkapital der Gesellschaft hat sich im Geschäftsjahr 2025 durch den Jahresüberschuss erhöht. Die Eigenkapitalquote beträgt 37,3 Prozent.",
+    "rueckstellungen_kommentar": "Die Rückstellungen für Pensionen wurden nach dem Teilwertverfahren berechnet. Der Rechnungszinssatz beträgt 1,83 Prozent.",
+    "verbindlichkeiten_kommentar": "Die Verbindlichkeiten gegenüber Kreditinstituten sind durch bankübliche Sicherheiten besichert. Die Restlaufzeiten sind im Verbindlichkeitenspiegel dargestellt.",
+    "umsatz_kommentar": "Die Umsatzerlöse konnten gegenüber dem Vorjahr um 21,9 Prozent auf 123.000 TEUR gesteigert werden. Alle Segmente trugen zum Wachstum bei.",
+    "personal_kommentar": "Der Personalaufwand umfasst Löhne und Gehälter sowie Sozialabgaben und Altersversorgung. Die durchschnittliche Mitarbeiterzahl betrug 345.",
+    "derivate_kommentar": "Die Gesellschaft setzt derivative Finanzinstrumente ausschließlich zur Absicherung bestehender Grundgeschäfte ein. Zum Bilanzstichtag bestehen keine offenen Derivatepositionen.",
+    "nahestehende_kommentar": "Transaktionen mit nahestehenden Unternehmen und Personen werden zu marktüblichen Konditionen abgewickelt. Wesentliche Transaktionen sind im Anhang gesondert erläutert.",
+    "ereignisse_nach_stichtag": "Nach dem Bilanzstichtag sind keine wesentlichen Ereignisse eingetreten, die zu einer anderen Darstellung der Vermögens-, Finanz- und Ertragslage geführt hätten.",
+    "bestaetigung_pruefungsurteil": "Wir haben den Jahresabschluss der Lumina AG, Duisburg, bestehend aus der Bilanz zum 31. Dezember 2025, der Gewinn- und Verlustrechnung sowie dem Anhang für das Geschäftsjahr vom 1. Januar bis zum 31. Dezember 2025 geprüft."
+  }
+}

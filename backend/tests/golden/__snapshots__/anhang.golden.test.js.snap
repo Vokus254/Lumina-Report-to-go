@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Anhang DOCX Buffer > Groesse stabil (Snapshot) 1`] = `17098`;
