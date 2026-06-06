@@ -1269,17 +1269,17 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
         if (typeof value === 'string' || typeof value === 'number') onChange(section, field, value);
       });
     });
-    (imported.segmente ?? []).forEach((segment, index) => {
+    (imported.segmente ?? []).forEach((segment: any, index: number) => {
       Object.entries(segment).forEach(([field, value]) => {
         if (typeof value === 'string' || typeof value === 'number') onArrayChange('segmente', index, field, value);
       });
     });
-    (imported.organe?.vorstand ?? []).forEach((person, index) => {
+    (imported.organe?.vorstand ?? []).forEach((person: any, index: number) => {
       Object.entries(person).forEach(([field, value]) => {
         if (typeof value === 'string' || typeof value === 'number') onArrayChange('organe.vorstand', index, field, value);
       });
     });
-    (imported.organe?.aufsichtsrat ?? []).forEach((person, index) => {
+    (imported.organe?.aufsichtsrat ?? []).forEach((person: any, index: number) => {
       Object.entries(person).forEach(([field, value]) => {
         if (typeof value === 'string' || typeof value === 'number') onArrayChange('organe.aufsichtsrat', index, field, value);
       });
@@ -1652,10 +1652,10 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
 
       <div style={styles.twoCol}>
         <Card title={`Segmente (${segmente.length})`}>
-          {segmente.map((s, i) => <KV key={i} k={s.name || `Segment ${i + 1}`} v={`${fmt(s.umsatz)} TEUR`} />)}
+          {segmente.map((s: any, i: number) => <KV key={i} k={s.name || `Segment ${i + 1}`} v={`${fmt(s.umsatz)} TEUR`} />)}
         </Card>
         <Card title={`Vorstand (${organe.vorstand.length})`}>
-          {organe.vorstand.map((v, i) => <KV key={i} k={v.name || '-'} v={v.funktion} />)}
+          {organe.vorstand.map((v: any, i: number) => <KV key={i} k={v.name || '-'} v={v.funktion} />)}
         </Card>
       </div>
 
