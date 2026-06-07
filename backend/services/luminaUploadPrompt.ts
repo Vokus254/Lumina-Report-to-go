@@ -39,6 +39,11 @@ Ordne erkannte Zahlen den passenden HGB-Positionen zu. Nutze wirtschaftliches Ve
 4. PLAUSIBILITÄTSPRÜFUNG
 Prüfe Bilanzsumme Aktiva = Bilanzsumme Passiva, Jahresüberschuss aus GuV = Veränderung Eigenkapital soweit ableitbar, Vorjahreswerte, Summenformeln, negative oder ungewöhnliche Salden, fehlende Pflichtpositionen, auffällige Veränderungen, doppelte oder widersprüchliche Angaben, fehlende Restlaufzeiten, fehlende Anhangangaben und fehlende Lageberichtsangaben.
 
+Fuer bilanz.plausibel und guv.plausibel gilt:
+- true nur verwenden, wenn vollstaendige Daten geprueft wurden
+- false verwenden, wenn Daten vorhanden, aber nicht plausibel sind
+- null verwenden, wenn keine ausreichenden Daten fuer eine Beurteilung vorliegen
+
 5. FEHLENDE UNTERLAGEN ERMITTELN
 Erstelle eine konkrete Liste der noch benötigten Unterlagen oder Angaben. Unterscheide zwingend erforderlich, für Prüfungssicherheit empfohlen und optional / zur Verbesserung der Qualität.
 
@@ -89,13 +94,13 @@ Verwende diese Struktur:
     "bilanzsumme_aktiva": null,
     "bilanzsumme_passiva": null,
     "differenz": null,
-    "plausibel": false
+    "plausibel": null
   },
   "guv": {
     "verfahren": "gesamt | umsatzkosten | unbekannt",
     "positionen": [],
     "jahresergebnis": null,
-    "plausibel": false
+    "plausibel": null
   },
   "mapping_vorschlag": [
     {

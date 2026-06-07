@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeAmountForAnalysis } from '../../services/luminaUploadAnalysisService';
+import { LuminaFileAnalysisResultSchema } from '../../../packages/schema/src';
 
 describe('normalizeAmountForAnalysis', () => {
   it('multipliziert TEUR-Beträge mit 1.000', () => {
@@ -72,5 +73,58 @@ describe('normalizeAmountForAnalysis', () => {
     expect(result.erkannter_wert_eur).toBe(362);
     expect(result.einheit).toBe('UNKLAR');
     expect(result.confidencePenalty).toBe(true);
+  });
+});
+
+describe('LuminaFileAnalysisResultSchema', () => {
+  const baseAnalysis = {
+    analyse_status: {
+      gesamtbeurteilung: 'Anhangentwurf erkannt',
+      datenqualitaet: 'mittel',
+      abschlussfaehigkeit: 'teilweise',
+      kurzbegruendung: 'Keine vollstaendige Bilanz oder GuV vorhanden.',
+    },
+    dateien: [],
+    gesellschaft: { organe: [] },
+    erkannte_abschlussbestandteile: {},
+    bilanz: {
+      aktiva: [],
+      passiva: [],
+      bilanzsumme_aktiva: null,
+      bilanzsumme_passiva: null,
+      differenz: null,
+      plausibel: null,
+    },
+    guv: {
+      verfahren: 'unbekannt',
+      positionen: [],
+      jahresergebnis: null,
+      plausibel: null,
+    },
+    mapping_vorschlag: [],
+    auffaelligkeiten: [],
+    fehlende_angaben: [],
+    naechste_schritte: [],
+    fragen_an_nutzer: [],
+  };
+
+  it('akzeptiert null fuer bilanz.plausibel', () => {
+    const result = LuminaFileAnalysisResultSchema.safeParse({
+      ...baseAnalysis,
+      bilanz: { ...baseAnalysis.bilanz, plausibel: null },
+      guv: { ...baseAnalysis.guv, plausibel: false },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('akzeptiert null fuer guv.plausibel', () => {
+    const result = LuminaFileAnalysisResultSchema.safeParse({
+      ...baseAnalysis,
+      bilanz: { ...baseAnalysis.bilanz, plausibel: true },
+      guv: { ...baseAnalysis.guv, plausibel: null },
+    });
+
+    expect(result.success).toBe(true);
   });
 });

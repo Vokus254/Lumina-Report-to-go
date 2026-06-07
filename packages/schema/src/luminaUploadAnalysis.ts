@@ -75,14 +75,14 @@ export const LuminaBilanzAnalysisSchema = z.object({
   bilanzsumme_aktiva: z.union([z.number(), z.string(), z.null()]).default(null),
   bilanzsumme_passiva: z.union([z.number(), z.string(), z.null()]).default(null),
   differenz: z.union([z.number(), z.string(), z.null()]).default(null),
-  plausibel: z.boolean().default(false),
+  plausibel: z.union([z.boolean(), z.null()]).default(null),
 }).passthrough();
 
 export const LuminaGuVAnalysisSchema = z.object({
   verfahren: z.string().default('unbekannt'),
   positionen: z.array(z.unknown()).default([]),
   jahresergebnis: z.union([z.number(), z.string(), z.null()]).default(null),
-  plausibel: z.boolean().default(false),
+  plausibel: z.union([z.boolean(), z.null()]).default(null),
 }).passthrough();
 
 export const LuminaMissingInformationSchema = z.object({
@@ -133,13 +133,13 @@ export const LuminaFileAnalysisResultSchema = z.object({
     bilanzsumme_aktiva: null,
     bilanzsumme_passiva: null,
     differenz: null,
-    plausibel: false,
+    plausibel: null,
   }),
   guv: LuminaGuVAnalysisSchema.default({
     verfahren: 'unbekannt',
     positionen: [],
     jahresergebnis: null,
-    plausibel: false,
+    plausibel: null,
   }),
   mapping_vorschlag: z.array(z.unknown()).default([]),
   auffaelligkeiten: z.array(LuminaFindingSchema).default([]),

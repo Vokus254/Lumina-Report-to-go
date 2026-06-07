@@ -176,6 +176,17 @@ function mappingAmountText(mapping: Record<string, unknown>): string {
   return formatCurrency(mapping.erkannter_wert_eur);
 }
 
+function plausibilityText(value: unknown): string {
+  if (value === null || value === undefined) return 'nicht beurteilbar';
+  if (value === true) return 'plausibel';
+  if (value === false) return 'nicht plausibel';
+  return text(value, 'nicht beurteilbar');
+}
+
+function isSchemaProcessingError(error: Error): boolean {
+  return /KI-Antwort entspricht nicht dem erwarteten JSON-Schema|invalid_type|expected.*boolean|Zod/i.test(error.message);
+}
+
 function DetailSection({ title, children, initiallyOpen = false }: { title: string; children: ReactNode; initiallyOpen?: boolean }) {
   return (
     <details style={S.details} open={initiallyOpen}>
@@ -217,6 +228,7 @@ export default function LuminaUploadAnalysis() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [technicalError, setTechnicalError] = useState('');
   const [result, setResult] = useState<UploadAnalysisResponse | null>(null);
 
   const requiredMissing = useMemo(
@@ -234,6 +246,7 @@ export default function LuminaUploadAnalysis() {
     }
     setStatus('loading');
     setMessage('Lumina liest die Dateien und erstellt die HGB-Diagnose...');
+    setTechnicalError('');
     setResult(null);
     try {
       const response = asResponse(await analyzeUploadedFiles(files));
@@ -241,8 +254,12 @@ export default function LuminaUploadAnalysis() {
       setStatus('done');
       setMessage('Analyse abgeschlossen.');
     } catch (err) {
+      const error = err as Error;
       setStatus('error');
-      setMessage((err as Error).message);
+      setTechnicalError(error.message);
+      setMessage(isSchemaProcessingError(error)
+        ? 'Die KI-Antwort konnte nicht vollständig verarbeitet werden. Bitte versuchen Sie es erneut oder laden Sie die Datei in einem strukturierteren Format hoch.'
+        : error.message);
     }
   };
 
@@ -407,6 +424,8 @@ export default function LuminaUploadAnalysis() {
               {asArray(asRecord(result.analysis.guv).positionen).length === 0 && (
                 <div style={S.emptyHint}>Es wurden noch keine vollständigen GuV-Daten erkannt.</div>
               )}
+              <div style={S.emptyHint}>Bilanz-Plausibilität: {plausibilityText(asRecord(result.analysis.bilanz).plausibel)}</div>
+              <div style={S.emptyHint}>GuV-Plausibilität: {plausibilityText(asRecord(result.analysis.guv).plausibel)}</div>
               {asRecord(result.analysis.guv).jahresergebnis !== undefined && (
                 <div style={S.emptyHint}>Erkanntes Jahresergebnis: {formatCurrency(asRecord(result.analysis.guv).jahresergebnis)}</div>
               )}
@@ -522,7 +541,15 @@ export default function LuminaUploadAnalysis() {
               extractionWarnings: result.extractionWarnings,
               normalizedFiles: result.normalizedFiles,
               rawAnalysisResult: result.rawAnalysisResult ?? result.analysis,
+              technicalError: technicalError || undefined,
             }, null, 2)}</pre>
+          </DetailSection>
+        </div>
+      )}
+      {!result && technicalError && (
+        <div style={S.results}>
+          <DetailSection title="Entwicklerdetails anzeigen">
+            <pre style={S.json}>{JSON.stringify({ technicalError }, null, 2)}</pre>
           </DetailSection>
         </div>
       )}
