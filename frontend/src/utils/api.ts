@@ -53,3 +53,16 @@ export async function readApiError(response: Response): Promise<string> {
   const payload = await response.json().catch(() => null) as { error?: string } | null;
   return friendlyApiError(response.status, payload?.error || response.statusText);
 }
+
+export async function analyzeUploadedFiles(files: File[]): Promise<unknown> {
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+  const response = await apiFetch('/api/analyze-uploaded-files', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+  return response.json();
+}

@@ -4,11 +4,12 @@ import StepSegmente from './pages/StepSegmente';
 import StepGuV from './pages/StepGuV';
 import StepBilanz from './pages/StepBilanz';
 import StepVorschau from './pages/StepVorschau';
+import LuminaUploadAnalysis from './pages/LuminaUploadAnalysis';
 import { useJahresabschluss } from './hooks/useJahresabschluss';
 import type { DemoTestRunAction, StepProps } from './types';
 import { PILOT_ACCESS_INVALID_EVENT, PILOT_CODE_STORAGE_KEY } from './utils/api';
 
-type ShellScreen = 'start' | 'express' | 'abschluss' | 'archive' | 'credits' | 'settings' | 'service' | 'reportPro';
+type ShellScreen = 'start' | 'express' | 'abschluss' | 'archive' | 'credits' | 'settings' | 'service' | 'reportPro' | 'datenUpload';
 
 const STEPS: { id: string; label: string; icon: string; component: React.ComponentType<StepProps> }[] = [
   { id: 'stammdaten', label: 'Stammdaten', icon: '01', component: StepStammdaten },
@@ -19,6 +20,13 @@ const STEPS: { id: string; label: string; icon: string; component: React.Compone
 ];
 
 const REPORT_CARDS = [
+  {
+    id: 'datenUpload' as ShellScreen,
+    title: 'Lumina Datenmüll-Upload',
+    text: 'Mehrere Dateien hochladen, technisch auslesen und prüfungsnah nach HGB diagnostizieren lassen.',
+    status: 'Neu',
+    hint: 'KI-Diagnose über Backend',
+  },
   {
     id: 'express' as ShellScreen,
     title: 'Lumina Report Express',
@@ -366,6 +374,7 @@ export default function App() {
 
   const renderContent = () => {
     if (screen === 'start') return renderStart();
+    if (screen === 'datenUpload') return <LuminaUploadAnalysis />;
     if (screen === 'abschluss') return renderWizard();
     if (screen === 'express') {
       return renderPlaceholder(
@@ -397,6 +406,7 @@ export default function App() {
         <button type="button" style={S.newReportBtn} onClick={() => setScreen('start')}>Neuer Bericht</button>
         <div style={S.navGroup}>Erstellen</div>
         {navItem('start', 'Start')}
+        {navItem('datenUpload', 'Datenmüll-Upload', 'Neu')}
         {navItem('express', 'Lumina Report Express', 'Neu')}
         {navItem('abschluss', 'Lumina Abschluss Pro')}
         <div style={S.navGroup}>Verlauf</div>

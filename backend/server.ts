@@ -10,8 +10,11 @@ import { renderBilanzGuV }   from './renderers/bilanzGuvRenderer';
 import { renderAnhang }      from './renderers/anhangRenderer';
 import { importExcel }       from './services/excelImportService';
 import { generateSectionText, generateSectionTextsForAnhang } from './services/openAiSectionTextService';
+import { extractUploadedFiles, type UploadedMemoryFile } from './services/luminaFileExtractionService';
+import { analyzeNormalizedFiles } from './services/luminaUploadAnalysisService';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const uploadAnalysis = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 12 } });
 const app    = express();
 app.set('trust proxy', 1);
 
@@ -204,6 +207,71 @@ function importExcelHandler(req: Request, res: Response) {
 app.post('/api/import-excel', requirePilotAccess, rateLimit('import', 30), upload.single('file'), importExcelHandler);
 app.post('/api/import', requirePilotAccess, rateLimit('import', 30), upload.single('file'), importExcelHandler);
 
+const SUPPORTED_ANALYSIS_EXTENSIONS = new Set([
+  'pdf',
+  'docx',
+  'xlsx',
+  'xls',
+  'csv',
+  'txt',
+  'md',
+  'markdown',
+  'zip',
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'bmp',
+  'tif',
+  'tiff',
+]);
+
+function extensionOf(fileName: string): string {
+  return fileName.split('.').pop()?.toLowerCase() || '';
+}
+
+app.post('/api/analyze-uploaded-files', requirePilotAccess, rateLimit('upload-analysis', 12), uploadAnalysis.array('files', 12), async (req: Request, res: Response) => {
+  const files = (req.files || []) as Express.Multer.File[];
+  if (!files.length) {
+    return res.status(400).json({ error: 'Keine Dateien empfangen.' });
+  }
+
+  const unsupportedFiles = files.filter(file => !SUPPORTED_ANALYSIS_EXTENSIONS.has(extensionOf(file.originalname)));
+  if (unsupportedFiles.length) {
+    return res.status(400).json({
+      error: `Nicht unterstuetzte Dateitypen: ${unsupportedFiles.map(file => file.originalname).join(', ')}`,
+      code: 'UNSUPPORTED_FILE_TYPE',
+    });
+  }
+
+  try {
+    const normalizedFiles = extractUploadedFiles(files.map(file => ({
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      buffer: file.buffer,
+    } satisfies UploadedMemoryFile)));
+    const extractionWarnings = normalizedFiles.flatMap(file => file.extractionWarnings.map(warning => `${file.fileName}: ${warning}`));
+    const analysis = await analyzeNormalizedFiles(normalizedFiles);
+    return res.json({
+      normalizedFiles,
+      extractionWarnings,
+      analysis: analysis.result,
+      model: analysis.model,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    const msg = (err as Error).message || 'Unbekannter Analysefehler';
+    const lower = msg.toLowerCase();
+    const status = lower.includes('openai') || lower.includes('api_key') || lower.includes('timeout') || lower.includes('abort') ? 503 : 500;
+    return res.status(status).json({
+      error: status === 503 ? `KI-Dienst aktuell nicht erreichbar: ${msg}` : msg,
+      code: status === 503 ? 'AI_SERVICE_UNAVAILABLE' : 'UPLOAD_ANALYSIS_FAILED',
+    });
+  }
+});
+
 // ── Generate all three documents ───────────────────────────────────
 app.post('/api/generate', requirePilotAccess, rateLimit('generate', 10), async (req: Request, res: Response) => {
   // Zod-Validierung des Request-Body
@@ -288,7 +356,7 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
   const error = err as { code?: string; message?: string };
   if (error.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({
-      error: 'Datei zu gross. Bitte laden Sie eine Excel-Datei mit maximal 10 MB hoch.',
+      error: 'Datei zu gross. Bitte laden Sie kleinere Dateien hoch.',
       code: 'FILE_TOO_LARGE',
     });
   }

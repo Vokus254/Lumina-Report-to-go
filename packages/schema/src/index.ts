@@ -71,3 +71,27 @@ export type {
   JahresabschlussData,
   JahresabschlussPartial,
 } from "./jahresabschluss";
+
+// Lumina Upload-Analyse
+export {
+  UploadedFileExtractionSchema,
+  NormalizedFileContentSchema,
+  LuminaFileAnalysisResultSchema,
+  LuminaGesellschaftInfoSchema,
+  LuminaBilanzAnalysisSchema,
+  LuminaGuVAnalysisSchema,
+  LuminaMissingInformationSchema,
+  LuminaFindingSchema,
+  LuminaNextStepSchema,
+} from "./luminaUploadAnalysis";
+export type {
+  UploadedFileExtraction,
+  NormalizedFileContent,
+  LuminaFileAnalysisResult,
+  LuminaGesellschaftInfo,
+  LuminaBilanzAnalysis,
+  LuminaGuVAnalysis,
+  LuminaMissingInformation,
+  LuminaFinding,
+  LuminaNextStep,
+} from "./luminaUploadAnalysis";
