@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import type { JahresabschlussData, ReportTextEntry, StepProps } from '../types';
 import { importExcelClient } from '../utils/importExcelClient';
 import { apiFetch, readApiError } from '../utils/api';
@@ -1095,7 +1095,9 @@ function buildSectionTextRequest(sectionId: AssistantSectionId, data: Jahresabsc
   };
 }
 
-export default function StepVorschau({ data, onChange, onArrayChange, onTransferReportText }: StepProps) {
+type PreviewAccordionKey = 'valuation' | 'bilanz' | 'guv' | 'assistant';
+
+export default function StepVorschau({ data, onChange, onArrayChange, onTransferReportText, onRegisterDemoTestRun }: StepProps) {
   const { stammdaten, guv, bilanz, kennzahlen, segmente, organe } = data;
   const [sectionStatus, setSectionStatus] = useState<Record<AssistantSectionId, SectionGenerationStatus>>({
     'anhang.bewertungsgrundsaetze': 'idle',
@@ -1130,8 +1132,22 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
   const [workbenchSettings, setWorkbenchSettings] = useState<Partial<Record<WorkbenchSectionId, WorkbenchSettings>>>({});
   const [testRunRunning, setTestRunRunning] = useState(false);
   const [testRunLog, setTestRunLog] = useState('');
+  const [previewAccordionOpen, setPreviewAccordionOpen] = useState<Record<PreviewAccordionKey, boolean>>({
+    valuation: false,
+    bilanz: false,
+    guv: false,
+    assistant: false,
+  });
   const viteEnv = (import.meta as unknown as { env?: Record<string, string | boolean | undefined> }).env;
   const showTestButton = viteEnv?.VITE_SHOW_DEMO_TEST_BUTTON !== 'false' && viteEnv?.VITE_SHOW_TEST_BUTTON !== 'false';
+  const previewGroupKey = (group: 'Bewertungsgrundsaetze' | 'Bilanzabschnitte' | 'GuV-Abschnitte'): PreviewAccordionKey => {
+    if (group === 'Bewertungsgrundsaetze') return 'valuation';
+    if (group === 'GuV-Abschnitte') return 'guv';
+    return 'bilanz';
+  };
+  const togglePreviewAccordion = (key: PreviewAccordionKey) => {
+    setPreviewAccordionOpen(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const ebit = guv.betriebsergebnis ||
     ((guv.umsatzerloese || 0) + (guv.bestandsveraenderung || 0) + (guv.eigenleistungen || 0) + (guv.sonstige_ertraege || 0)
@@ -1383,6 +1399,15 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
     }
   };
 
+  useEffect(() => {
+    onRegisterDemoTestRun?.({
+      run: runExampleTestFlow,
+      running: testRunRunning,
+      visible: showTestButton,
+    });
+    return () => onRegisterDemoTestRun?.(null);
+  }, [testRunRunning, showTestButton, onRegisterDemoTestRun]);
+
   const renderReportTextOverview = () => {
     const statuses = REPORT_TEXT_SECTIONS.map(section => ({
       ...section,
@@ -1406,30 +1431,41 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
             </div>
           )}
         </div>
-        {(['Bewertungsgrundsaetze', 'Bilanzabschnitte', 'GuV-Abschnitte'] as const).map(group => (
-          <div key={group}>
-            <div style={styles.assistantGroupTitle}>{assistantGroupLabel(group)}</div>
-            <div style={styles.reportTextGrid}>
-              {statuses.filter(section => section.group === group).map(section => (
-                <div key={section.id} style={styles.reportTextStatusRow}>
-                  <span style={styles.reportTextStatusTitle}>{section.title}</span>
-                  <span
-                    style={{
-                      ...styles.reportTextStatusBadge,
-                      ...(section.status === 'In Bericht übernommen'
-                        ? styles.reportTextStatusDone
-                        : section.status === 'Manuell zu prüfen'
-                          ? styles.reportTextStatusChanged
-                          : styles.reportTextStatusStandard),
-                    }}
-                  >
-                    {section.status}
-                  </span>
+        {(['Bewertungsgrundsaetze', 'Bilanzabschnitte', 'GuV-Abschnitte'] as const).map(group => {
+          const key = previewGroupKey(group);
+          const groupStatuses = statuses.filter(section => section.group === group);
+
+          return (
+            <div key={group} style={styles.accordionPanel}>
+              <button type="button" style={styles.accordionHeader} onClick={() => togglePreviewAccordion(key)}>
+                <span style={styles.accordionTitle}>{assistantGroupLabel(group)}</span>
+                <span style={styles.accordionMeta}>{groupStatuses.length} Abschnitte</span>
+                <span style={styles.accordionToggle}>{previewAccordionOpen[key] ? 'Einklappen' : 'Aufklappen'}</span>
+              </button>
+              {previewAccordionOpen[key] && (
+                <div style={styles.reportTextGrid}>
+                  {groupStatuses.map(section => (
+                    <div key={section.id} style={styles.reportTextStatusRow}>
+                      <span style={styles.reportTextStatusTitle}>{section.title}</span>
+                      <span
+                        style={{
+                          ...styles.reportTextStatusBadge,
+                          ...(section.status === 'In Bericht übernommen'
+                            ? styles.reportTextStatusDone
+                            : section.status === 'Manuell zu prüfen'
+                              ? styles.reportTextStatusChanged
+                              : styles.reportTextStatusStandard),
+                        }}
+                      >
+                        {section.status}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1441,8 +1477,12 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
 
     return (
       <div style={styles.sectionAssistant}>
-        <div style={styles.sectionAssistantTitle}>KI-Abschnittsassistent</div>
-        {(['Bewertungsgrundsaetze', 'Bilanzabschnitte', 'GuV-Abschnitte'] as const).map(group => {
+        <button type="button" style={styles.accordionHeader} onClick={() => togglePreviewAccordion('assistant')}>
+          <span style={styles.sectionAssistantTitle}>KI-Abschnittsassistent</span>
+          <span style={styles.accordionMeta}>{sectionsWithRequests.length} Abschnitte</span>
+          <span style={styles.accordionToggle}>{previewAccordionOpen.assistant ? 'Einklappen' : 'Aufklappen'}</span>
+        </button>
+        {previewAccordionOpen.assistant && (['Bewertungsgrundsaetze', 'Bilanzabschnitte', 'GuV-Abschnitte'] as const).map(group => {
           const groupSections = sectionsWithRequests.filter(section => section.group === group);
           if (groupSections.length === 0) return null;
 
@@ -1615,21 +1655,9 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
 
       {renderReportTextOverview()}
 
-      {showTestButton && (
+      {testRunLog && (
         <div style={styles.testRunBox}>
-          <button
-            type="button"
-            onClick={runExampleTestFlow}
-            disabled={testRunRunning}
-            style={{
-              ...styles.testRunButton,
-              opacity: testRunRunning ? 0.7 : 1,
-              cursor: testRunRunning ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {testRunRunning ? 'Demo-Testlauf läuft...' : 'Demo-Testlauf starten'}
-          </button>
-          {testRunLog && <div style={styles.testRunLog}>{testRunLog}</div>}
+          <div style={styles.testRunLog}>{testRunLog}</div>
         </div>
       )}
 
@@ -1727,6 +1755,11 @@ const styles: Record<string, React.CSSProperties> = {
   reportTextOverviewHeader: { display: 'grid', gap: 6, marginBottom: 10 },
   reportTextOverviewTitle: { fontSize: 12, fontWeight: 700, color: '#1F3864', textTransform: 'uppercase' },
   reportTextOverviewWarning: { fontSize: 12, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 10px' },
+  accordionPanel: { border: '1px solid #E6E7E9', borderRadius: 12, background: '#FFFFFF', marginTop: 8, overflow: 'hidden' },
+  accordionHeader: { width: '100%', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', border: 'none', background: '#FBFBFA', padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' },
+  accordionTitle: { fontSize: 12, fontWeight: 700, color: '#1F3864', textTransform: 'uppercase', flex: 1 },
+  accordionMeta: { fontSize: 11, color: '#667085', fontWeight: 700, whiteSpace: 'nowrap' },
+  accordionToggle: { fontSize: 11, color: '#344054', fontWeight: 700, whiteSpace: 'nowrap' },
   reportTextGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
   reportTextStatusRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, border: '1px solid #E6E7E9', borderRadius: 12, padding: '7px 10px', background: '#FFFFFF' },
   reportTextStatusTitle: { fontSize: 12, color: '#111827', fontWeight: 600 },
@@ -1739,7 +1772,7 @@ const styles: Record<string, React.CSSProperties> = {
   testRunButton: { background: '#92400E', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' },
   testRunLog: { fontSize: 12, color: '#78350F', lineHeight: 1.4, whiteSpace: 'pre-wrap' },
   sectionAssistant: { marginTop: 14, background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '14px 18px' },
-  sectionAssistantTitle: { fontSize: 12, fontWeight: 700, color: '#1F3864', textTransform: 'uppercase', marginBottom: 10 },
+  sectionAssistantTitle: { fontSize: 12, fontWeight: 700, color: '#1F3864', textTransform: 'uppercase', flex: 1 },
   assistantGroupTitle: { fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '12px 0 8px' },
   assistantCard: { background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, marginBottom: 10 },
   assistantHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 },
@@ -1769,3 +1802,4 @@ const styles: Record<string, React.CSSProperties> = {
   unconfirmedHint: { marginTop: 6, fontSize: 11, fontWeight: 700, color: '#854D0E' },
   sectionTestOutput: { width: '100%', minHeight: 110, resize: 'vertical', boxSizing: 'border-box', border: '1px solid #D1D5DB', borderRadius: 8, padding: 10, fontFamily: 'Consolas, monospace', fontSize: 12, color: '#111827', background: '#fff' },
 };
+

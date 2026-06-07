@@ -5,7 +5,7 @@ import StepGuV from './pages/StepGuV';
 import StepBilanz from './pages/StepBilanz';
 import StepVorschau from './pages/StepVorschau';
 import { useJahresabschluss } from './hooks/useJahresabschluss';
-import type { StepProps } from './types';
+import type { DemoTestRunAction, StepProps } from './types';
 import { PILOT_ACCESS_INVALID_EVENT, PILOT_CODE_STORAGE_KEY } from './utils/api';
 
 type ShellScreen = 'start' | 'express' | 'abschluss' | 'archive' | 'credits' | 'settings' | 'service' | 'reportPro';
@@ -63,6 +63,7 @@ export default function App() {
   const [pilotCodeInput, setPilotCodeInput] = useState('');
   const [showPilotModal, setShowPilotModal] = useState(() => !window.localStorage.getItem(PILOT_CODE_STORAGE_KEY));
   const [pilotMessage, setPilotMessage] = useState('');
+  const [demoTestRunAction, setDemoTestRunAction] = useState<DemoTestRunAction | null>(null);
   const {
     data, step, setStep,
     status, errorMsg, loadingMsg,
@@ -84,6 +85,12 @@ export default function App() {
     window.addEventListener(PILOT_ACCESS_INVALID_EVENT, handleInvalidAccess);
     return () => window.removeEventListener(PILOT_ACCESS_INVALID_EVENT, handleInvalidAccess);
   }, []);
+
+  useEffect(() => {
+    if (STEPS[step].id !== 'vorschau') {
+      setDemoTestRunAction(null);
+    }
+  }, [step]);
 
   const unlockPilotAccess = () => {
     const code = pilotCodeInput.trim();
@@ -317,6 +324,7 @@ export default function App() {
             onAddItem={onAddItem}
             onRemoveItem={onRemoveItem}
             onTransferReportText={onTransferReportText}
+            onRegisterDemoTestRun={setDemoTestRunAction}
           />
         </div>
         <div style={S.navRow}>
@@ -335,9 +343,20 @@ export default function App() {
               )}
               {status === 'error' && <div style={S.errorBox}>{errorMsg}</div>}
               {status === 'done' && <div style={S.successBox}>Download gestartet.</div>}
-              <button style={S.primaryBtn} onClick={generate} disabled={status === 'generating'}>
-                {status === 'generating' ? 'Generiert...' : 'Jahresabschluss generieren'}
-              </button>
+              <div style={S.generateButtons}>
+                {demoTestRunAction?.visible && (
+                  <button
+                    style={S.demoBtn}
+                    onClick={() => void demoTestRunAction.run()}
+                    disabled={demoTestRunAction.running || status === 'generating'}
+                  >
+                    {demoTestRunAction.running ? 'Demo-Testlauf läuft...' : 'Demo-Testlauf starten'}
+                  </button>
+                )}
+                <button style={S.primaryBtn} onClick={generate} disabled={status === 'generating'}>
+                  {status === 'generating' ? 'Generiert...' : 'Jahresabschluss generieren'}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -496,10 +515,12 @@ const S: Record<string, React.CSSProperties> = {
   stepTitle: { margin: 0, fontSize: 18, fontWeight: 700 },
   stepCount: { fontSize: 12, color: '#98a2b3', fontWeight: 700 },
   stepBody: { padding: 18, maxHeight: 'calc(100vh - 390px)', overflowY: 'auto' },
-  navRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: '1px solid #e6e7e9', background: '#fbfbfa' },
+  navRow: { position: 'sticky', bottom: 0, zIndex: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: '1px solid #e6e7e9', background: '#fbfbfa' },
   primaryBtn: { border: '1px solid #111827', background: '#111827', color: '#fff', borderRadius: 10, padding: '9px 14px', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' },
   secondaryBtn: { border: '1px solid #d0d5dd', background: '#fff', color: '#344054', borderRadius: 10, padding: '9px 13px', cursor: 'pointer', fontWeight: 650, fontFamily: 'inherit' },
   generateArea: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
+  generateButtons: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' },
+  demoBtn: { border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', borderRadius: 10, padding: '9px 14px', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' },
   loadingBox: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: '#eff6ff', borderRadius: 10, border: '1px solid #bfdbfe', color: '#175cd3', fontSize: 13 },
   spinner: { width: 16, height: 16, border: '2px solid #bfdbfe', borderTopColor: '#175cd3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
   errorBox: { padding: '8px 14px', background: '#fff0ee', border: '1px solid #f5c2bd', borderRadius: 10, fontSize: 13, color: '#b42318' },

@@ -47,6 +47,12 @@ export type OnArrayChange = (path: string, index: number, field: string, value: 
 export type OnAddItem = (path: string, template: Record<string, unknown>) => void;
 export type OnRemoveItem = (path: string, index: number) => void;
 export type OnTransferReportText = (entry: ReportTextEntry) => void;
+export type DemoTestRunAction = {
+  run: () => void | Promise<void>;
+  running: boolean;
+  visible: boolean;
+};
+export type OnRegisterDemoTestRun = (action: DemoTestRunAction | null) => void;
 
 export interface StepProps {
   data: JahresabschlussData;
@@ -55,4 +61,5 @@ export interface StepProps {
   onAddItem: OnAddItem;
   onRemoveItem: OnRemoveItem;
   onTransferReportText?: OnTransferReportText;
+  onRegisterDemoTestRun?: OnRegisterDemoTestRun;
 }
