@@ -287,14 +287,14 @@ export default function LuminaUploadAnalysis() {
       {result && (
         <div style={S.results}>
           <div style={{ ...S.instant, borderLeft: `6px solid ${trafficBorder(result.analysis.analyse_status.abschlussfaehigkeit)}` }}>
-            <div>
+            <div style={S.instantMain}>
               <div style={S.kicker}>Management Summary</div>
               <h2 style={S.resultTitle}>{trafficLabel(result.analysis.analyse_status.abschlussfaehigkeit)}</h2>
               <p style={S.leadSmall}>{readableText(result.analysis.analyse_status.kurzbegruendung, 'Lumina hat eine erste Abschlussdiagnose erstellt.')}</p>
             </div>
-            <span style={{ ...S.badge, ...statusColor(result.analysis.analyse_status.abschlussfaehigkeit) }}>
+            <div style={{ ...S.summaryNotice, ...statusColor(result.analysis.analyse_status.abschlussfaehigkeit) }}>
               {readableText(result.analysis.analyse_status.gesamtbeurteilung, 'Diagnose erstellt')}
-            </span>
+            </div>
           </div>
 
           <div style={S.cards}>
@@ -531,53 +531,55 @@ export default function LuminaUploadAnalysis() {
 }
 
 const S: Record<string, CSSProperties> = {
-  wrap: { maxWidth: 1040, margin: '0 auto', padding: '34px 28px 90px', width: '100%' },
+  wrap: { maxWidth: 1040, margin: '0 auto', padding: '34px 28px 90px', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' },
   hero: { marginBottom: 18 },
-  kicker: { fontSize: 12, color: '#667085', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 },
-  title: { margin: '6px 0 10px', fontSize: 32, lineHeight: 1.12, letterSpacing: '-0.035em' },
-  lead: { margin: 0, color: '#667085', lineHeight: 1.55, maxWidth: 720 },
-  leadSmall: { margin: '8px 0 0', color: '#667085', lineHeight: 1.5 },
-  panel: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 16, padding: 18, marginBottom: 18 },
+  kicker: { fontSize: 12, color: '#667085', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, overflowWrap: 'anywhere' },
+  title: { margin: '6px 0 10px', fontSize: 32, lineHeight: 1.12, letterSpacing: '-0.035em', overflowWrap: 'anywhere' },
+  lead: { margin: 0, color: '#667085', lineHeight: 1.55, maxWidth: 720, overflowWrap: 'anywhere' },
+  leadSmall: { margin: '8px 0 0', color: '#667085', lineHeight: 1.5, overflowWrap: 'anywhere', wordBreak: 'break-word' },
+  panel: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 16, padding: 18, marginBottom: 18, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' },
   upload: { display: 'grid', gap: 5, placeItems: 'center', minHeight: 150, border: '1.5px dashed #d0d5dd', borderRadius: 14, background: '#fbfbfa', cursor: 'pointer', color: '#344054' },
   fileList: { marginTop: 12, display: 'grid', gap: 6 },
-  fileRow: { display: 'flex', justifyContent: 'space-between', gap: 12, background: '#fbfbfa', border: '1px solid #e6e7e9', borderRadius: 10, padding: '9px 11px', fontSize: 13 },
+  fileRow: { display: 'flex', justifyContent: 'space-between', gap: 12, background: '#fbfbfa', border: '1px solid #e6e7e9', borderRadius: 10, padding: '9px 11px', fontSize: 13, minWidth: 0, overflowWrap: 'anywhere' },
   muted: { color: '#667085', fontSize: 12 },
   primaryBtn: { marginTop: 14, border: '1px solid #111827', background: '#111827', color: '#fff', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' },
   secondaryBtn: { marginTop: 12, border: '1px solid #d0d5dd', background: '#fff', color: '#344054', borderRadius: 10, padding: '9px 13px', cursor: 'pointer', fontWeight: 650, fontFamily: 'inherit' },
-  message: { marginTop: 12, padding: '10px 12px', background: '#eff6ff', color: '#175cd3', borderRadius: 10, fontSize: 13 },
+  message: { marginTop: 12, padding: '10px 12px', background: '#eff6ff', color: '#175cd3', borderRadius: 10, fontSize: 13, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal', maxWidth: '100%', boxSizing: 'border-box' },
   error: { background: '#fff0ee', color: '#b42318' },
-  results: { display: 'grid', gap: 10 },
-  instant: { display: 'flex', justifyContent: 'space-between', gap: 18, alignItems: 'flex-start', background: '#fff', border: '1px solid #e6e7e9', borderRadius: 16, padding: 18 },
-  resultTitle: { margin: '5px 0 0', fontSize: 22, letterSpacing: '-0.02em' },
-  badge: { borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
-  cards: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 },
-  card: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 14, padding: 14 },
-  cardLabel: { color: '#667085', fontSize: 12, marginBottom: 5 },
-  details: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 14, overflow: 'hidden' },
-  summary: { padding: '12px 14px', cursor: 'pointer', fontWeight: 700 },
-  detailBody: { borderTop: '1px solid #e6e7e9', padding: 14 },
-  tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: { textAlign: 'left', padding: '9px 10px', borderBottom: '1px solid #e6e7e9', color: '#667085', fontSize: 12, fontWeight: 700 },
-  td: { padding: '10px', borderBottom: '1px solid #f2f4f7', verticalAlign: 'top', color: '#344054' },
+  results: { display: 'grid', gap: 10, minWidth: 0, maxWidth: '100%' },
+  instant: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 12, alignItems: 'flex-start', background: '#fff', border: '1px solid #e6e7e9', borderRadius: 16, padding: 18, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' },
+  instantMain: { minWidth: 0, maxWidth: '100%' },
+  summaryNotice: { borderRadius: 10, padding: '10px 12px', fontSize: 13, fontWeight: 650, lineHeight: 1.45, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '100%', boxSizing: 'border-box' },
+  resultTitle: { margin: '5px 0 0', fontSize: 22, letterSpacing: '-0.02em', overflowWrap: 'anywhere' },
+  badge: { borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 700, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '100%' },
+  cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, minWidth: 0 },
+  card: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 14, padding: 14, minWidth: 0, overflowWrap: 'anywhere' },
+  cardLabel: { color: '#667085', fontSize: 12, marginBottom: 5, overflowWrap: 'anywhere' },
+  details: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 14, overflow: 'hidden', minWidth: 0, maxWidth: '100%' },
+  summary: { padding: '12px 14px', cursor: 'pointer', fontWeight: 700, overflowWrap: 'anywhere' },
+  detailBody: { borderTop: '1px solid #e6e7e9', padding: 14, minWidth: 0, maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' },
+  tableWrap: { width: '100%', maxWidth: '100%', overflowX: 'hidden' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' },
+  th: { textAlign: 'left', padding: '9px 10px', borderBottom: '1px solid #e6e7e9', color: '#667085', fontSize: 12, fontWeight: 700, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', verticalAlign: 'top' },
+  td: { padding: '10px', borderBottom: '1px solid #f2f4f7', verticalAlign: 'top', color: '#344054', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: 0 },
   checkGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 },
   checkItem: { display: 'grid', gridTemplateColumns: '24px 1fr auto', alignItems: 'center', gap: 8, border: '1px solid #e6e7e9', borderRadius: 10, padding: '10px 12px', background: '#fbfbfa' },
-  priority: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '3px 8px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  priority: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '3px 8px', fontSize: 12, fontWeight: 700, whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: '100%' },
   taskList: { display: 'grid', gap: 10 },
-  task: { border: '1px solid #e6e7e9', borderRadius: 12, padding: 12, background: '#fff' },
+  task: { border: '1px solid #e6e7e9', borderRadius: 12, padding: 12, background: '#fff', minWidth: 0, overflowWrap: 'anywhere' },
   taskCritical: { borderColor: '#f5c2bd', background: '#fffafa' },
-  taskTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 },
-  taskTitle: { fontWeight: 700, color: '#17212f', marginBottom: 5 },
-  taskMeta: { color: '#667085', fontSize: 13, lineHeight: 1.45 },
+  taskTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, flexWrap: 'wrap', minWidth: 0 },
+  taskTitle: { fontWeight: 700, color: '#17212f', marginBottom: 5, overflowWrap: 'anywhere', wordBreak: 'break-word' },
+  taskMeta: { color: '#667085', fontSize: 13, lineHeight: 1.45, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' },
   groupBlock: { display: 'grid', gap: 8, marginBottom: 14 },
   groupTitle: { margin: 0, fontSize: 15, letterSpacing: '-0.01em' },
   pathList: { margin: 0, paddingLeft: 22, display: 'grid', gap: 10 },
   pathItem: { paddingLeft: 4 },
-  emptyHint: { padding: '11px 12px', borderRadius: 10, background: '#fbfbfa', color: '#667085', border: '1px solid #e6e7e9', fontSize: 13 },
+  emptyHint: { padding: '11px 12px', borderRadius: 10, background: '#fbfbfa', color: '#667085', border: '1px solid #e6e7e9', fontSize: 13, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal', maxWidth: '100%', boxSizing: 'border-box' },
   noticeStack: { display: 'grid', gap: 8, marginBottom: 12 },
-  readableText: { color: '#344054', lineHeight: 1.55 },
-  summaryTextBlock: { display: 'grid', gap: 8 },
+  readableText: { color: '#344054', lineHeight: 1.55, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' },
+  summaryTextBlock: { display: 'grid', gap: 8, minWidth: 0 },
   badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   subBlock: { marginTop: 14, display: 'grid', gap: 8 },
-  json: { margin: 0, maxHeight: 360, overflow: 'auto', whiteSpace: 'pre-wrap', background: '#111827', color: '#f9fafb', borderRadius: 10, padding: 12, fontSize: 12, lineHeight: 1.5 },
+  json: { margin: 0, maxHeight: 360, overflow: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', background: '#111827', color: '#f9fafb', borderRadius: 10, padding: 12, fontSize: 12, lineHeight: 1.5 },
 };
