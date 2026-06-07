@@ -22,6 +22,18 @@ app.get('/api/health', (_: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({
+    ok: true,
+    service: 'lumina-backend',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/', (_req: Request, res: Response) => {
+  res.send('Lumina backend is running');
+});
+
 type SectionTextRequestBody = {
   sectionId: string;
   title: string;
