@@ -18,7 +18,7 @@ const uploadAnalysis = multer({ storage: multer.memoryStorage(), limits: { fileS
 const app    = express();
 app.set('trust proxy', 1);
 
-const DEFAULT_CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:3000'];
+const DEFAULT_CORS_ORIGINS = ['https://lumina-report-to-go.vercel.app', 'http://127.0.0.1:5173', 'http://localhost:5173'];
 function allowedCorsOrigins(): string[] {
   return (process.env['CORS_ORIGINS'] || DEFAULT_CORS_ORIGINS.join(','))
     .split(',')
@@ -369,6 +369,6 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
 export { app };
 
 if (require.main === module) {
-  const port = process.env['PORT'] || 3001;
+  const port = process.env.PORT || 3001;
   app.listen(port, () => console.log(`Server running on port ${port}`));
 }

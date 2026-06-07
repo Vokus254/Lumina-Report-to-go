@@ -1,15 +1,11 @@
 const viteEnv = (import.meta as unknown as { env?: Record<string, string | boolean | undefined> }).env;
-const DEFAULT_PROD_API_BASE_URL = 'https://lumina-report-to-go-production.up.railway.app';
-
-const rawApiBaseUrl =
-  viteEnv?.VITE_API_BASE_URL ||
-  viteEnv?.API_BASE_URL ||
-  (viteEnv?.DEV === true ? '' : DEFAULT_PROD_API_BASE_URL);
+const rawApiBaseUrl = viteEnv?.VITE_API_BASE_URL || '';
 
 export const API_BASE_URL = String(rawApiBaseUrl || '').replace(/\/$/, '');
 
 export function apiUrl(path: string): string {
-  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return API_BASE_URL ? `${API_BASE_URL}${normalizedPath}` : normalizedPath;
 }
 
 export const PILOT_CODE_STORAGE_KEY = 'luminaPilotAccessCode';
@@ -20,7 +16,7 @@ function getPilotAccessCode(): string {
 }
 
 function friendlyApiError(status: number, message: string): string {
-  if (status === 0) return 'Backend nicht erreichbar. Bitte pruefen Sie die Verbindung und versuchen Sie es erneut.';
+  if (status === 0) return 'Die Upload-Analyse-API ist nicht erreichbar. Bitte prüfen: Ist das Railway-Backend deployed und ist VITE_API_BASE_URL in Vercel gesetzt?';
   if (status === 401) return 'Zugriffscode ungueltig oder fehlt. Bitte geben Sie den Pilot-Zugangscode erneut ein.';
   if (status === 429) return message || 'Rate Limit erreicht. Bitte warten Sie kurz und versuchen Sie es erneut.';
   if (status === 413) return message || 'Datei zu gross. Bitte laden Sie eine kleinere Excel-Datei hoch.';
@@ -57,11 +53,19 @@ export async function readApiError(response: Response): Promise<string> {
 export async function analyzeUploadedFiles(files: File[]): Promise<unknown> {
   const formData = new FormData();
   files.forEach(file => formData.append('files', file));
-  const response = await apiFetch('/api/analyze-uploaded-files', {
-    method: 'POST',
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await apiFetch('/api/analyze-uploaded-files', {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (err) {
+    throw new Error('Die Upload-Analyse-API ist nicht erreichbar. Bitte prüfen: Ist das Railway-Backend deployed und ist VITE_API_BASE_URL in Vercel gesetzt?');
+  }
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Die Upload-Analyse-API ist nicht erreichbar. Bitte prüfen: Ist das Railway-Backend deployed und ist VITE_API_BASE_URL in Vercel gesetzt?');
+    }
     throw new Error(await readApiError(response));
   }
   return response.json();

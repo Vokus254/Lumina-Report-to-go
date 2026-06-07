@@ -30,10 +30,60 @@ USE_MOCK_AI_TEXTS=false
 Frontend:
 
 ```env
-VITE_API_BASE_URL=http://localhost:3001
+VITE_API_BASE_URL=http://127.0.0.1:3001
 ```
 
 Keine echten API-Keys in Git, Markdown, Logs oder Beispiel-Dateien speichern.
+
+## Deployment: Vercel Frontend + Railway Backend
+
+### Railway Backend
+
+Railway-Projekt fuer das Backend:
+
+- Root Directory: `backend`
+- Build Command: `npm install && npm run build`
+- Start Command: `npm start`
+
+Environment Variables in Railway:
+
+```env
+OPENAI_API_KEY=...
+AI_PROVIDER=openai
+OPENAI_MODEL=gpt-4.1-mini
+USE_MOCK_AI_TEXTS=false
+CORS_ORIGINS=https://lumina-report-to-go.vercel.app,http://127.0.0.1:5173,http://localhost:5173
+```
+
+Railway setzt `PORT` automatisch. Das Backend liest `process.env.PORT` und faellt lokal auf `3001` zurueck.
+
+Nach dem Deployment testen:
+
+```text
+https://DEIN-RAILWAY-BACKEND.up.railway.app/health
+```
+
+Die Upload-Analyse liegt unter:
+
+```text
+POST https://DEIN-RAILWAY-BACKEND.up.railway.app/api/analyze-uploaded-files
+```
+
+### Vercel Frontend
+
+Vercel-Projekt fuer das Frontend:
+
+- Root Directory: `frontend`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+Environment Variable in Vercel:
+
+```env
+VITE_API_BASE_URL=https://DEIN-RAILWAY-BACKEND.up.railway.app
+```
+
+Nach Aenderung der Environment Variable muss das Vercel-Frontend neu deployed werden.
 
 ## Start Entwicklung
 
