@@ -1,9 +1,9 @@
 /**
- * Gemeinsame Typen für das Frontend.
- * JahresabschlussData kommt direkt aus @nexus/schema.
+ * Gemeinsame Frontend-Typen.
+ *
+ * Vercel baut das Frontend isoliert aus dem Ordner `frontend`.
+ * Deshalb darf diese Datei kein externes `@nexus/schema` auflösen müssen.
  */
-import type { JahresabschlussData as SchemaJahresabschlussData } from '@nexus/schema';
-
 export type SectionTextParagraph = {
   type: 'confirmed' | 'unconfirmed';
   text: string;
@@ -26,18 +26,28 @@ export type ReportTextEntry = {
   generationSignature?: string;
 };
 
-export type JahresabschlussData = SchemaJahresabschlussData & {
+export type JahresabschlussData = {
+  stammdaten: Record<string, any>;
+  segmente: any[];
+  guv: Record<string, any>;
+  bilanz: Record<string, any>;
+  kennzahlen: Record<string, any>;
+  organe: {
+    vorstand: any[];
+    aufsichtsrat: any[];
+    [key: string]: any;
+  };
+  beteiligungen: any[];
   reportTexts?: Record<string, ReportTextEntry>;
+  [key: string]: any;
 };
 
-// Callback-Typen für den Wizard-State in App.tsx
 export type OnChange = (section: string, field: string, value: string | number) => void;
 export type OnArrayChange = (path: string, index: number, field: string, value: string | number) => void;
 export type OnAddItem = (path: string, template: Record<string, unknown>) => void;
 export type OnRemoveItem = (path: string, index: number) => void;
 export type OnTransferReportText = (entry: ReportTextEntry) => void;
 
-/** Props die alle Step-Komponenten gemeinsam haben */
 export interface StepProps {
   data: JahresabschlussData;
   onChange: OnChange;
