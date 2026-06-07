@@ -41,15 +41,22 @@ function trimEmptyRows(rows: unknown[][]): unknown[][] {
   return rows.filter(row => row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== ''));
 }
 
-function detectContentType(fileName: string, text: string): string {
+export function detectContentType(fileName: string, text: string): string {
+  const normalizedFileName = fileName.toLowerCase();
   const haystack = `${fileName}\n${text}`.toLowerCase();
-  if (/summen|salden|susa|kontennachweis/.test(haystack)) return 'SuSa / Kontennachweis';
-  if (/bilanz|aktiva|passiva|eigenkapital/.test(haystack)) return 'Bilanz';
-  if (/\bguv\b|gewinn.*verlust|umsatzerl/.test(haystack)) return 'GuV';
-  if (/anhang|bewertungsmethoden/.test(haystack)) return 'Anhang';
-  if (/lagebericht|prognosebericht/.test(haystack)) return 'Lagebericht';
-  if (/stammdaten|handelsregister|geschäftsführer|geschaeftsfuehrer/.test(haystack)) return 'Stammdaten';
-  return 'unbekannt';
+  const startsLikeAnhang = /^\s*(anhang|notes)\b/.test(haystack) || /\banhang\b/.test(normalizedFileName);
+  const explicitAnhang = startsLikeAnhang || /anhang zum jahresabschluss|anhangsangaben|bilanzierungs- und bewertungsmethoden|bilanzierungsgrundsätze|bewertungsgrundsätze|angaben nach §\s*284|angaben nach §\s*285/.test(haystack);
+
+  if (explicitAnhang) return 'anhang';
+  if (/lagebericht|prognosebericht|geschäftsverlauf|geschaeftsverlauf|chancen- und risikobericht/.test(haystack)) return 'lagebericht';
+  if (/bilanz|aktiva|passiva|eigenkapital/.test(haystack)) return 'bilanz';
+  if (/\bguv\b|gewinn.*verlust|umsatzerl/.test(haystack)) return 'guv';
+  if (/summen|salden|susa/.test(haystack)) return 'susa';
+  if (/kontennachweis|kontenblatt|kontenplan/.test(haystack)) return 'kontennachweis';
+  if (/anlagenverzeichnis|anlagespiegel|anlagegitter/.test(haystack)) return 'anlagenverzeichnis';
+  if (/\bop[-\s]?liste\b|offene posten|debitorenliste|kreditorenliste/.test(haystack)) return 'op-liste';
+  if (/vertrag|darlehensvertrag|mietvertrag|leasingvertrag|gesellschafterbeschluss/.test(haystack)) return 'vertrag';
+  return 'sonstige';
 }
 
 function extractExcel(file: UploadedMemoryFile): NormalizedFileContent {
