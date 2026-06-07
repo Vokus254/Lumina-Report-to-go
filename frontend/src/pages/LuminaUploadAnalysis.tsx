@@ -12,6 +12,21 @@ type NormalizedFileContent = {
   [key: string]: unknown;
 };
 
+type MissingInformation = {
+  prioritaet: string;
+  bereich: string;
+  fehlende_angabe: string;
+  warum_erforderlich: string;
+  beispiel_nachfrage_an_nutzer: string;
+};
+
+type NextStep = {
+  schritt?: number;
+  massnahme?: string;
+  ziel?: string;
+  titel?: string;
+};
+
 type LuminaFileAnalysisResult = {
   analyse_status: {
     gesamtbeurteilung: string;
@@ -26,19 +41,8 @@ type LuminaFileAnalysisResult = {
   guv: unknown;
   mapping_vorschlag: unknown[];
   auffaelligkeiten: unknown[];
-  fehlende_angaben: Array<{
-    prioritaet: string;
-    bereich: string;
-    fehlende_angabe: string;
-    warum_erforderlich: string;
-    beispiel_nachfrage_an_nutzer: string;
-  }>;
-  naechste_schritte: Array<{
-    schritt?: number;
-    massnahme?: string;
-    ziel?: string;
-    titel?: string;
-  }>;
+  fehlende_angaben: MissingInformation[];
+  naechste_schritte: NextStep[];
   fragen_an_nutzer: unknown[];
 };
 
@@ -54,24 +58,125 @@ function asResponse(value: unknown): UploadAnalysisResponse {
   return value as UploadAnalysisResponse;
 }
 
-function statusColor(value: string | undefined): React.CSSProperties {
-  const text = String(value || '').toLowerCase();
-  if (text.includes('ja') || text.includes('hoch') || text.includes('plausibel')) return { background: '#eaf7ef', color: '#16794c' };
-  if (text.includes('nein') || text.includes('niedrig') || text.includes('kritisch') || text.includes('zwingend')) return { background: '#fff0ee', color: '#b42318' };
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function text(value: unknown, fallback = 'nicht erkannt'): string {
+  if (value === null || value === undefined || value === '') return fallback;
+  return String(value);
+}
+
+function valueText(value: unknown, fallback = 'nicht erkannt'): string {
+  const record = asRecord(value);
+  return text(record.wert ?? value, fallback);
+}
+
+function sourceText(value: unknown): string {
+  return text(asRecord(value).quelle, '-');
+}
+
+function confidenceText(value: unknown): string {
+  const confidence = asRecord(value).confidence;
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence)) return '-';
+  return `${Math.round(confidence * 100)} %`;
+}
+
+function statusColor(value: string | undefined): CSSProperties {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized.includes('ja') || normalized.includes('hoch') || normalized.includes('plausibel')) return { background: '#eaf7ef', color: '#16794c' };
+  if (normalized.includes('nein') || normalized.includes('niedrig') || normalized.includes('kritisch') || normalized.includes('zwingend')) return { background: '#fff0ee', color: '#b42318' };
   return { background: '#fff4df', color: '#a15c07' };
+}
+
+function priorityStyle(value: string): CSSProperties {
+  const normalized = value.toLowerCase();
+  if (normalized.includes('hoch') || normalized.includes('zwingend')) return { background: '#fff0ee', color: '#b42318' };
+  if (normalized.includes('mittel') || normalized.includes('empfohlen')) return { background: '#fff4df', color: '#a15c07' };
+  return { background: '#f2f4f7', color: '#344054' };
+}
+
+function trafficLabel(value: string | undefined): string {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'ja') return '🟢 Abschlussfähigkeit: ja';
+  if (normalized === 'nein') return '🔴 Abschlussfähigkeit: nein';
+  return '🟡 Abschlussfähigkeit: teilweise';
+}
+
+function trafficBorder(value: string | undefined): string {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'ja') return '#16794c';
+  if (normalized === 'nein') return '#b42318';
+  return '#f59e0b';
+}
+
+function statusSymbol(value: unknown): string {
+  if (value === true) return '✅';
+  if (value === false || value === null || value === undefined) return '❌';
+  const normalized = String(value).toLowerCase();
+  if (normalized.includes('vorhanden') || normalized.includes('ja') || normalized.includes('true')) return '✅';
+  if (normalized.includes('fehlt') || normalized.includes('nein') || normalized.includes('false')) return '❌';
+  return '⚠️';
+}
+
+function statusLabel(value: unknown): string {
+  if (value === true) return 'vorhanden';
+  if (value === false || value === null || value === undefined) return 'fehlt';
+  return String(value);
+}
+
+function formatAmount(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} EUR`;
+  }
+  const stringValue = String(value);
+  const numeric = Number(stringValue.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'));
+  if (Number.isFinite(numeric) && /\d/.test(stringValue) && !/[A-Za-z]/.test(stringValue.replace(/EUR|TEUR/gi, ''))) {
+    return `${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numeric)} EUR`;
+  }
+  return stringValue;
 }
 
 function JsonBlock({ value }: { value: unknown }) {
   return <pre style={S.json}>{JSON.stringify(value, null, 2)}</pre>;
 }
 
-function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+function DetailSection({ title, children, initiallyOpen = false }: { title: string; children: ReactNode; initiallyOpen?: boolean }) {
   return (
-    <details style={S.details}>
+    <details style={S.details} open={initiallyOpen}>
       <summary style={S.summary}>{title}</summary>
       <div style={S.detailBody}>{children}</div>
     </details>
   );
+}
+
+function DataTable({ columns, rows }: { columns: string[]; rows: Array<Array<ReactNode>> }) {
+  if (!rows.length) return <div style={S.emptyHint}>Keine Daten erkannt.</div>;
+  return (
+    <div style={S.tableWrap}>
+      <table style={S.table}>
+        <thead>
+          <tr>{columns.map(column => <th key={column} style={S.th}>{column}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => <td key={cellIndex} style={S.td}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PriorityPill({ value }: { value: string }) {
+  return <span style={{ ...S.priority, ...priorityStyle(value) }}>{value || '-'}</span>;
 }
 
 export default function LuminaUploadAnalysis() {
@@ -145,14 +250,14 @@ export default function LuminaUploadAnalysis() {
 
       {result && (
         <div style={S.results}>
-          <div style={S.instant}>
+          <div style={{ ...S.instant, borderLeft: `6px solid ${trafficBorder(result.analysis.analyse_status.abschlussfaehigkeit)}` }}>
             <div>
-              <div style={S.kicker}>Gesamtbeurteilung</div>
-              <h2 style={S.resultTitle}>{result.analysis.analyse_status.gesamtbeurteilung || 'Lumina kann weiterarbeiten.'}</h2>
-              <p style={S.leadSmall}>{result.analysis.analyse_status.kurzbegruendung}</p>
+              <div style={S.kicker}>Management Summary</div>
+              <h2 style={S.resultTitle}>{trafficLabel(result.analysis.analyse_status.abschlussfaehigkeit)}</h2>
+              <p style={S.leadSmall}>{result.analysis.analyse_status.kurzbegruendung || 'Lumina hat eine erste Abschlussdiagnose erstellt.'}</p>
             </div>
             <span style={{ ...S.badge, ...statusColor(result.analysis.analyse_status.abschlussfaehigkeit) }}>
-              Abschlussfähigkeit: {result.analysis.analyse_status.abschlussfaehigkeit}
+              {result.analysis.analyse_status.gesamtbeurteilung || 'Diagnose erstellt'}
             </span>
           </div>
 
@@ -162,7 +267,7 @@ export default function LuminaUploadAnalysis() {
               <strong>{result.analysis.analyse_status.datenqualitaet}</strong>
             </div>
             <div style={S.card}>
-              <div style={S.cardLabel}>Zwingend fehlt</div>
+              <div style={S.cardLabel}>Zwingend fehlende Angaben</div>
               <strong>{requiredMissing.length}</strong>
             </div>
             <div style={S.card}>
@@ -171,34 +276,171 @@ export default function LuminaUploadAnalysis() {
             </div>
           </div>
 
-          <DetailSection title="1. Gesamtbeurteilung">
-            <JsonBlock value={result.analysis.analyse_status} />
+          <DetailSection title="Erkannte Dateien" initiallyOpen>
+            <DataTable
+              columns={['Datei', 'Erkannter Inhalt', 'Relevanz', 'Datenqualität', 'Bemerkung']}
+              rows={result.analysis.dateien.map(item => {
+                const file = asRecord(item);
+                return [
+                  text(file.dateiname, '-'),
+                  text(file.erkannter_inhalt, '-'),
+                  <span style={{ ...S.priority, ...statusColor(text(file.relevanz, '')) }}>{text(file.relevanz, '-')}</span>,
+                  <span style={{ ...S.priority, ...statusColor(text(file.datenqualitaet, '')) }}>{text(file.datenqualitaet, '-')}</span>,
+                  text(file.bemerkungen, '-'),
+                ];
+              })}
+            />
           </DetailSection>
-          <DetailSection title="2. Erkannte Dateien">
-            <JsonBlock value={result.analysis.dateien} />
+
+          <DetailSection title="Erkannte Gesellschaftsdaten">
+            <DataTable
+              columns={['Feld', 'Erkannter Wert', 'Quelle', 'Sicherheit']}
+              rows={[
+                ['Name', valueText(asRecord(result.analysis.gesellschaft).name), sourceText(asRecord(result.analysis.gesellschaft).name), confidenceText(asRecord(result.analysis.gesellschaft).name)],
+                ['Rechtsform', valueText(asRecord(result.analysis.gesellschaft).rechtsform), sourceText(asRecord(result.analysis.gesellschaft).rechtsform), confidenceText(asRecord(result.analysis.gesellschaft).rechtsform)],
+                ['Sitz', valueText(asRecord(result.analysis.gesellschaft).sitz), sourceText(asRecord(result.analysis.gesellschaft).sitz), confidenceText(asRecord(result.analysis.gesellschaft).sitz)],
+                ['Geschäftsjahr', valueText(asRecord(result.analysis.gesellschaft).geschaeftsjahr), sourceText(asRecord(result.analysis.gesellschaft).geschaeftsjahr), confidenceText(asRecord(result.analysis.gesellschaft).geschaeftsjahr)],
+                ['Bilanzstichtag', valueText(asRecord(result.analysis.gesellschaft).bilanzstichtag), sourceText(asRecord(result.analysis.gesellschaft).bilanzstichtag), confidenceText(asRecord(result.analysis.gesellschaft).bilanzstichtag)],
+                ...asArray(asRecord(result.analysis.gesellschaft).organe).map((organ, index) => {
+                  const record = asRecord(organ);
+                  return [`Organ ${index + 1}`, text(record.name ?? record.wert ?? organ), text(record.quelle, '-'), confidenceText(record)];
+                }),
+              ]}
+            />
           </DetailSection>
-          <DetailSection title="3. Erkannte Gesellschaftsdaten">
-            <JsonBlock value={result.analysis.gesellschaft} />
+
+          <DetailSection title="Erkannte Abschlussbestandteile">
+            <div style={S.checkGrid}>
+              {[
+                ['bilanz', 'Bilanz'],
+                ['guv', 'GuV'],
+                ['anhang', 'Anhang'],
+                ['lagebericht', 'Lagebericht'],
+                ['susa', 'SuSa'],
+                ['kontennachweis', 'Kontennachweis'],
+                ['anlagenverzeichnis', 'Anlagenverzeichnis'],
+                ['op_listen', 'OP-Listen'],
+                ['vertraege', 'Verträge'],
+              ].map(([key, label]) => {
+                const value = result.analysis.erkannte_abschlussbestandteile[key];
+                return (
+                  <div key={key} style={S.checkItem}>
+                    <span>{statusSymbol(value)}</span>
+                    <strong>{label}</strong>
+                    <span style={S.muted}>{statusLabel(value)}</span>
+                  </div>
+                );
+              })}
+            </div>
           </DetailSection>
-          <DetailSection title="4. Erkannte Abschlussbestandteile">
-            <JsonBlock value={result.analysis.erkannte_abschlussbestandteile} />
+
+          <DetailSection title="Bilanz / GuV / Mapping-Vorschlag">
+            <div style={S.noticeStack}>
+              {asArray(asRecord(result.analysis.bilanz).aktiva).length === 0 && asArray(asRecord(result.analysis.bilanz).passiva).length === 0 && (
+                <div style={S.emptyHint}>Es wurden noch keine vollständigen Bilanzdaten erkannt.</div>
+              )}
+              {asArray(asRecord(result.analysis.guv).positionen).length === 0 && (
+                <div style={S.emptyHint}>Es wurden noch keine vollständigen GuV-Daten erkannt.</div>
+              )}
+            </div>
+            {result.analysis.mapping_vorschlag.length > 0 && (
+              <DataTable
+                columns={['Quelle / Bezeichnung', 'Erkannter Wert', 'Vorjahr', 'Vorgeschlagene HGB-Position', 'Begründung', 'Sicherheit']}
+                rows={result.analysis.mapping_vorschlag.map(item => {
+                  const mapping = asRecord(item);
+                  return [
+                    text(mapping.quelle_bezeichnung, '-'),
+                    formatAmount(mapping.erkannter_wert),
+                    formatAmount(mapping.vorjahr),
+                    text(mapping.vorgeschlagene_hgb_position, '-'),
+                    text(mapping.begruendung, '-'),
+                    confidenceText(mapping),
+                  ];
+                })}
+              />
+            )}
           </DetailSection>
-          <DetailSection title="5. Bilanz / GuV / Mapping-Vorschlag">
-            <JsonBlock value={{ bilanz: result.analysis.bilanz, guv: result.analysis.guv, mapping_vorschlag: result.analysis.mapping_vorschlag }} />
+
+          <DetailSection title="Auffälligkeiten">
+            {result.analysis.auffaelligkeiten.length === 0 ? <div style={S.emptyHint}>Keine Auffälligkeiten gemeldet.</div> : (
+              <div style={S.taskList}>
+                {result.analysis.auffaelligkeiten.map((item, index) => {
+                  const finding = asRecord(item);
+                  return (
+                    <div key={index} style={S.task}>
+                      <div style={S.taskTop}>
+                        <PriorityPill value={text(finding.prioritaet, 'niedrig')} />
+                        <strong>{text(finding.bereich, 'Allgemein')}</strong>
+                      </div>
+                      <div style={S.taskTitle}>{text(finding.beschreibung, '-')}</div>
+                      <div style={S.taskMeta}>Auswirkung: {text(finding.auswirkung, '-')}</div>
+                      <div style={S.taskMeta}>Empfehlung: {text(finding.empfehlung, '-')}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </DetailSection>
-          <DetailSection title="6. Auffälligkeiten">
-            <JsonBlock value={result.analysis.auffaelligkeiten} />
+
+          <DetailSection title="Fehlende Angaben" initiallyOpen>
+            {(['zwingend', 'empfohlen', 'optional'] as const).map(group => {
+              const items = result.analysis.fehlende_angaben.filter(item => item.prioritaet === group);
+              if (!items.length) return null;
+              return (
+                <div key={group} style={S.groupBlock}>
+                  <h3 style={S.groupTitle}>{group === 'zwingend' ? 'Zwingend erforderlich' : group === 'empfohlen' ? 'Empfohlen' : 'Optional'}</h3>
+                  <div style={S.taskList}>
+                    {items.map((item, index) => (
+                      <div key={`${group}-${index}`} style={{ ...S.task, ...(group === 'zwingend' ? S.taskCritical : {}) }}>
+                        <div style={S.taskTop}>
+                          <PriorityPill value={item.prioritaet} />
+                          <strong>{item.bereich || 'Allgemein'}</strong>
+                        </div>
+                        <div style={S.taskTitle}>{item.fehlende_angabe}</div>
+                        <div style={S.taskMeta}>Warum erforderlich: {item.warum_erforderlich}</div>
+                        <div style={S.taskMeta}>Beispiel-Nachfrage: {item.beispiel_nachfrage_an_nutzer}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {result.analysis.fehlende_angaben.length === 0 && <div style={S.emptyHint}>Keine fehlenden Angaben gemeldet.</div>}
+            {result.analysis.fehlende_angaben.length > 0 && (
+              <button type="button" style={S.secondaryBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                Weitere Unterlagen hochladen
+              </button>
+            )}
           </DetailSection>
-          <DetailSection title="7. Fehlende Angaben">
-            <JsonBlock value={result.analysis.fehlende_angaben} />
+
+          <DetailSection title="Nächste Schritte" initiallyOpen>
+            {result.analysis.naechste_schritte.length === 0 ? <div style={S.emptyHint}>Keine nächsten Schritte gemeldet.</div> : (
+              <ol style={S.pathList}>
+                {result.analysis.naechste_schritte.map((step, index) => (
+                  <li key={index} style={S.pathItem}>
+                    <strong>{step.massnahme || step.titel || `Schritt ${index + 1}`}</strong>
+                    <div style={S.taskMeta}>{step.ziel || 'Ziel noch nicht benannt.'}</div>
+                  </li>
+                ))}
+              </ol>
+            )}
           </DetailSection>
-          <DetailSection title="8. Nächste Schritte">
-            <JsonBlock value={result.analysis.naechste_schritte} />
+
+          <DetailSection title="Rückfragen an den Nutzer">
+            <DataTable
+              columns={['Priorität', 'Frage', 'Zweck']}
+              rows={result.analysis.fragen_an_nutzer.map(item => {
+                const question = asRecord(item);
+                return [
+                  <PriorityPill value={text(question.prioritaet, 'mittel')} />,
+                  text(question.frage, '-'),
+                  text(question.zweck, '-'),
+                ];
+              })}
+            />
           </DetailSection>
-          <DetailSection title="9. Rückfragen an den Nutzer">
-            <JsonBlock value={result.analysis.fragen_an_nutzer} />
-          </DetailSection>
-          <DetailSection title="Technische Extraktion">
+
+          <DetailSection title="Entwicklerdetails anzeigen">
             <JsonBlock value={{
               model: result.model,
               timestamp: result.timestamp,
@@ -213,7 +455,7 @@ export default function LuminaUploadAnalysis() {
 }
 
 const S: Record<string, CSSProperties> = {
-  wrap: { maxWidth: 980, margin: '0 auto', padding: '34px 28px 90px', width: '100%' },
+  wrap: { maxWidth: 1040, margin: '0 auto', padding: '34px 28px 90px', width: '100%' },
   hero: { marginBottom: 18 },
   kicker: { fontSize: 12, color: '#667085', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 },
   title: { margin: '6px 0 10px', fontSize: 32, lineHeight: 1.12, letterSpacing: '-0.035em' },
@@ -225,6 +467,7 @@ const S: Record<string, CSSProperties> = {
   fileRow: { display: 'flex', justifyContent: 'space-between', gap: 12, background: '#fbfbfa', border: '1px solid #e6e7e9', borderRadius: 10, padding: '9px 11px', fontSize: 13 },
   muted: { color: '#667085', fontSize: 12 },
   primaryBtn: { marginTop: 14, border: '1px solid #111827', background: '#111827', color: '#fff', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' },
+  secondaryBtn: { marginTop: 12, border: '1px solid #d0d5dd', background: '#fff', color: '#344054', borderRadius: 10, padding: '9px 13px', cursor: 'pointer', fontWeight: 650, fontFamily: 'inherit' },
   message: { marginTop: 12, padding: '10px 12px', background: '#eff6ff', color: '#175cd3', borderRadius: 10, fontSize: 13 },
   error: { background: '#fff0ee', color: '#b42318' },
   results: { display: 'grid', gap: 10 },
@@ -237,5 +480,25 @@ const S: Record<string, CSSProperties> = {
   details: { background: '#fff', border: '1px solid #e6e7e9', borderRadius: 14, overflow: 'hidden' },
   summary: { padding: '12px 14px', cursor: 'pointer', fontWeight: 700 },
   detailBody: { borderTop: '1px solid #e6e7e9', padding: 14 },
+  tableWrap: { overflowX: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th: { textAlign: 'left', padding: '9px 10px', borderBottom: '1px solid #e6e7e9', color: '#667085', fontSize: 12, fontWeight: 700 },
+  td: { padding: '10px', borderBottom: '1px solid #f2f4f7', verticalAlign: 'top', color: '#344054' },
+  checkGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 },
+  checkItem: { display: 'grid', gridTemplateColumns: '24px 1fr auto', alignItems: 'center', gap: 8, border: '1px solid #e6e7e9', borderRadius: 10, padding: '10px 12px', background: '#fbfbfa' },
+  priority: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '3px 8px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
+  taskList: { display: 'grid', gap: 10 },
+  task: { border: '1px solid #e6e7e9', borderRadius: 12, padding: 12, background: '#fff' },
+  taskCritical: { borderColor: '#f5c2bd', background: '#fffafa' },
+  taskTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 },
+  taskTitle: { fontWeight: 700, color: '#17212f', marginBottom: 5 },
+  taskMeta: { color: '#667085', fontSize: 13, lineHeight: 1.45 },
+  groupBlock: { display: 'grid', gap: 8, marginBottom: 14 },
+  groupTitle: { margin: 0, fontSize: 15, letterSpacing: '-0.01em' },
+  pathList: { margin: 0, paddingLeft: 22, display: 'grid', gap: 10 },
+  pathItem: { paddingLeft: 4 },
+  emptyHint: { padding: '11px 12px', borderRadius: 10, background: '#fbfbfa', color: '#667085', border: '1px solid #e6e7e9', fontSize: 13 },
+  noticeStack: { display: 'grid', gap: 8, marginBottom: 12 },
+  readableText: { color: '#344054', lineHeight: 1.55 },
   json: { margin: 0, maxHeight: 360, overflow: 'auto', whiteSpace: 'pre-wrap', background: '#111827', color: '#f9fafb', borderRadius: 10, padding: 12, fontSize: 12, lineHeight: 1.5 },
 };
