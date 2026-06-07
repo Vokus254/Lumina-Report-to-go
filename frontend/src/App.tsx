@@ -53,6 +53,10 @@ const styleTag = document.createElement('style');
 styleTag.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(styleTag);
 
+function fmt(value: number | undefined): string {
+  return Math.round(Number(value || 0)).toLocaleString('de-DE');
+}
+
 export default function App() {
   const [screen, setScreen] = useState<ShellScreen>('start');
   const [pilotCodeInput, setPilotCodeInput] = useState('');
@@ -212,6 +216,55 @@ export default function App() {
     </div>
   );
 
+  const renderStepSummary = () => {
+    const b = data.bilanz;
+    const g = data.guv;
+    const reportTextCount = Object.keys(data.reportTexts ?? {}).length;
+    const active = STEPS[step].id;
+    if (active === 'stammdaten') {
+      return [
+        ['Pflichtfelder', data.stammdaten.firmenname && data.stammdaten.sitz ? 'gefüllt' : 'offen'],
+        ['Gesellschaft', data.stammdaten.firmenname || 'noch offen'],
+        ['Kapitalmarktdaten', data.stammdaten.isin ? 'vorhanden' : 'optional'],
+        ['Nächster Schritt', 'Segmente & Organe'],
+      ];
+    }
+    if (active === 'segmente') {
+      return [
+        ['Operative Segmente', String(data.segmente.length)],
+        ['Vorstand', String(data.organe.vorstand.length)],
+        ['Organe-Qualität', data.organe.vorstand.length ? 'prüfbar' : 'offen'],
+        ['Offene Angaben', 'fachlich prüfen'],
+      ];
+    }
+    if (active === 'guv') {
+      const material = (g.material_roh || 0) + (g.material_dienst || 0);
+      const gesamtleistung = (g.umsatzerloese || 0) + (g.bestandsveraenderung || 0) + (g.eigenleistungen || 0) + (g.sonstige_ertraege || 0);
+      return [
+        ['Umsatzerlöse', fmt(g.umsatzerloese)],
+        ['Gesamtleistung', fmt(gesamtleistung)],
+        ['Materialaufwand', fmt(material)],
+        ['Datenqualität', 'bearbeitbar'],
+      ];
+    }
+    if (active === 'bilanz') {
+      const aktiva = Number(b.bilanzsumme || 0);
+      const passiva = Number(b.eigenkapital || 0) + Number(b.rueckstellungen || 0) + Number(b.verbindlichkeiten || 0);
+      return [
+        ['Bilanzsumme', fmt(aktiva)],
+        ['Bilanz ausgeglichen', Math.abs(aktiva - passiva) < 2 ? 'ja' : 'prüfen'],
+        ['Aktiva', fmt(aktiva)],
+        ['Passiva', fmt(passiva)],
+      ];
+    }
+    return [
+      ['Übernommene Texte', String(reportTextCount)],
+      ['Standard-/Fallbacktexte', 'exportfähig'],
+      ['Exportbereitschaft', 'gegeben'],
+      ['Manuell zu prüfen', 'vor Freigabe'],
+    ];
+  };
+
   const renderWizard = () => (
     <div style={S.wizardShell}>
       <div style={S.wizardTop}>
@@ -238,6 +291,14 @@ export default function App() {
             <span style={S.stepIcon}>{s.icon}</span>
             <span>{s.label}</span>
           </button>
+        ))}
+      </div>
+      <div style={S.summaryGrid}>
+        {renderStepSummary().map(([label, value]) => (
+          <div key={label} style={S.summaryCard}>
+            <div style={S.summaryLabel}>{label}</div>
+            <strong style={S.summaryValue}>{value}</strong>
+          </div>
         ))}
       </div>
       <div style={S.content}>
@@ -411,24 +472,28 @@ const S: Record<string, React.CSSProperties> = {
   smallTitle: { margin: '0 0 8px', fontSize: 16 },
   disabledAction: { marginTop: 14, color: '#667085', fontSize: 13 },
   settingRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e6e7e9', padding: '14px 0', gap: 16 },
-  wizardShell: { height: 'calc(100vh - 58px)', overflow: 'auto', padding: '24px 26px' },
-  wizardTop: { display: 'flex', justifyContent: 'space-between', gap: 18, alignItems: 'flex-start', maxWidth: 1100, margin: '0 auto 16px' },
+  wizardShell: { height: 'calc(100vh - 58px)', overflow: 'auto', padding: '22px 28px 40px' },
+  wizardTop: { display: 'flex', justifyContent: 'space-between', gap: 18, alignItems: 'flex-start', maxWidth: 1180, margin: '0 auto 18px' },
   kicker: { fontSize: 12, color: '#667085', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 },
   wizardTitle: { margin: '4px 0 0', fontSize: 24, letterSpacing: '-0.02em' },
   headerRight: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' },
   importOk: { fontSize: 12, color: '#16794c', fontWeight: 700 },
   importErr: { fontSize: 12, color: '#b42318', fontWeight: 700 },
-  stepNav: { display: 'flex', gap: 8, margin: '0 auto 14px', maxWidth: 1100, background: '#fff', borderRadius: 14, padding: 8, border: '1px solid #e6e7e9', overflowX: 'auto' },
-  stepBtn: { display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', color: '#667085', whiteSpace: 'nowrap', fontFamily: 'inherit' },
+  stepNav: { display: 'flex', gap: 10, margin: '0 auto 14px', maxWidth: 1180, background: '#fcfcfb', borderRadius: 20, padding: '14px 16px', border: '1px solid #e6e7e9', overflowX: 'auto' },
+  stepBtn: { display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px', borderRadius: 999, border: '1px solid transparent', background: 'transparent', cursor: 'pointer', color: '#667085', whiteSpace: 'nowrap', fontFamily: 'inherit', fontWeight: 650 },
   stepBtnActive: { background: '#111827', color: '#fff', fontWeight: 700 },
   stepBtnDone: { color: '#16794c' },
-  stepIcon: { fontSize: 11, fontWeight: 700 },
-  content: { maxWidth: 1100, margin: '0 auto', background: '#fff', borderRadius: 14, border: '1px solid #e6e7e9', overflow: 'hidden' },
-  stepHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #e6e7e9', background: '#fbfbfa' },
+  stepIcon: { width: 23, height: 23, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, border: '1px solid currentColor' },
+  summaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, maxWidth: 1180, margin: '0 auto 14px' },
+  summaryCard: { background: '#fbfbfa', border: '1px solid #e6e7e9', borderRadius: 14, padding: '12px 14px' },
+  summaryLabel: { fontSize: 12, color: '#667085', marginBottom: 5 },
+  summaryValue: { display: 'block', fontSize: 17, color: '#17212f', letterSpacing: '-0.01em' },
+  content: { maxWidth: 1180, margin: '0 auto', background: '#fff', borderRadius: 18, border: '1px solid #e6e7e9', overflow: 'hidden' },
+  stepHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: '1px solid #e6e7e9', background: '#fbfbfa' },
   stepTitle: { margin: 0, fontSize: 18, fontWeight: 700 },
   stepCount: { fontSize: 12, color: '#98a2b3', fontWeight: 700 },
-  stepBody: { padding: 24, maxHeight: 'calc(100vh - 340px)', overflowY: 'auto' },
-  navRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: '1px solid #e6e7e9', background: '#fbfbfa' },
+  stepBody: { padding: 18, maxHeight: 'calc(100vh - 390px)', overflowY: 'auto' },
+  navRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: '1px solid #e6e7e9', background: '#fbfbfa' },
   primaryBtn: { border: '1px solid #111827', background: '#111827', color: '#fff', borderRadius: 10, padding: '9px 14px', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' },
   secondaryBtn: { border: '1px solid #d0d5dd', background: '#fff', color: '#344054', borderRadius: 10, padding: '9px 13px', cursor: 'pointer', fontWeight: 650, fontFamily: 'inherit' },
   generateArea: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },

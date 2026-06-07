@@ -1267,7 +1267,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
 
   const reportTextStatus = (sectionId: WorkbenchSectionId, request: RequestSection) => {
     const transferred = data.reportTexts?.[sectionId];
-    if (!transferred) return 'Nicht übernommen';
+    if (!transferred) return 'Standardtext verwendet';
 
     const settings = getWorkbenchSettings(sectionId, request);
     const currentSignature = generationSignature({ ...settings, prompt: settings.prompt.trim() || defaultWorkbenchPrompt(request) });
@@ -1275,7 +1275,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
       return 'In Bericht übernommen';
     }
 
-    return 'Entwurf geändert - nicht übernommen';
+    return 'Manuell zu prüfen';
   };
 
   const applyImportedDataToState = (imported: JahresabschlussData) => {
@@ -1388,16 +1388,16 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
       ...section,
       status: reportTextStatus(section.id, buildSectionTextRequest(section.id, data)),
     }));
-    const hasOpenItems = statuses.some(section => section.group !== 'Bewertungsgrundsaetze' && section.status !== 'In Bericht übernommen');
+    const hasReviewItems = statuses.some(section => section.status === 'Manuell zu prüfen');
     const hasValuationTexts = statuses.some(section => section.group === 'Bewertungsgrundsaetze' && section.status === 'In Bericht übernommen');
 
     return (
       <div style={styles.reportTextOverview}>
         <div style={styles.reportTextOverviewHeader}>
           <div style={styles.reportTextOverviewTitle}>Übernommene Berichtstexte</div>
-          {hasOpenItems && (
+          {hasReviewItems && (
             <div style={styles.reportTextOverviewWarning}>
-              Nicht alle Abschnittstexte wurden in den Bericht übernommen. Der Export verwendet sonst Fallback-/Standardtexte.
+              Einzelne Entwürfe wurden nach der Übernahme geändert und sollten vor dem Export erneut geprüft werden.
             </div>
           )}
           {!hasValuationTexts && (
@@ -1418,9 +1418,9 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
                       ...styles.reportTextStatusBadge,
                       ...(section.status === 'In Bericht übernommen'
                         ? styles.reportTextStatusDone
-                        : section.status === 'Entwurf geändert - nicht übernommen'
+                        : section.status === 'Manuell zu prüfen'
                           ? styles.reportTextStatusChanged
-                          : styles.reportTextStatusMissing),
+                          : styles.reportTextStatusStandard),
                     }}
                   >
                     {section.status}
@@ -1723,16 +1723,17 @@ const styles: Record<string, React.CSSProperties> = {
   docIcon: { fontSize: 20, flexShrink: 0 },
   docName: { fontSize: 13, fontWeight: 700, color: '#111827' },
   docDesc: { fontSize: 11, color: '#6B7280', marginTop: 1 },
-  reportTextOverview: { background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, padding: '14px 18px', marginBottom: 14 },
+  reportTextOverview: { background: '#FFFFFF', border: '1px solid #E6E7E9', borderRadius: 16, padding: '14px 16px', marginBottom: 14 },
   reportTextOverviewHeader: { display: 'grid', gap: 6, marginBottom: 10 },
   reportTextOverviewTitle: { fontSize: 12, fontWeight: 700, color: '#1F3864', textTransform: 'uppercase' },
   reportTextOverviewWarning: { fontSize: 12, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 10px' },
   reportTextGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
-  reportTextStatusRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 10px', background: '#F9FAFB' },
+  reportTextStatusRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, border: '1px solid #E6E7E9', borderRadius: 12, padding: '7px 10px', background: '#FFFFFF' },
   reportTextStatusTitle: { fontSize: 12, color: '#111827', fontWeight: 600 },
   reportTextStatusBadge: { borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' },
   reportTextStatusDone: { color: '#065F46', background: '#D1FAE5' },
   reportTextStatusChanged: { color: '#92400E', background: '#FEF3C7' },
+  reportTextStatusStandard: { color: '#92400E', background: '#FEF3C7' },
   reportTextStatusMissing: { color: '#991B1B', background: '#FEE2E2' },
   testRunBox: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 12px', marginBottom: 14 },
   testRunButton: { background: '#92400E', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' },

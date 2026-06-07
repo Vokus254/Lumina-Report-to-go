@@ -7,25 +7,6 @@ import { apiFetch, readApiError } from '../utils/api';
 export type GenerateStatus = 'idle' | 'generating' | 'done' | 'error';
 export type ImportStatus   = 'idle' | 'loading' | 'done' | 'error';
 
-const REQUIRED_REPORT_TEXTS = [
-  'anhang.immaterielle_vermoegenswerte',
-  'anhang.sachanlagen',
-  'anhang.finanzanlagen',
-  'anhang.vorraete',
-  'anhang.forderungen',
-  'anhang.wertpapiere_uv',
-  'anhang.liquide_mittel',
-  'anhang.eigenkapital',
-  'anhang.rueckstellungen',
-  'anhang.verbindlichkeiten',
-  'anhang.guv.umsatzerloese',
-  'anhang.guv.materialaufwand',
-  'anhang.guv.personalaufwand',
-  'anhang.guv.abschreibungen',
-  'anhang.guv.sonstige_betriebliche_ertraege',
-  'anhang.guv.sonstige_betriebliche_aufwendungen',
-];
-
 export function useJahresabschluss() {
   const [data, setData]               = useState<JahresabschlussData>(DEFAULT_DATA);
   const [step, setStep]               = useState(0);
@@ -124,15 +105,6 @@ export function useJahresabschluss() {
   };
   // Generate
   const generate = async () => {
-    const missingReportTexts = REQUIRED_REPORT_TEXTS.filter(sectionId => !data.reportTexts?.[sectionId]);
-    if (missingReportTexts.length > 0) {
-      const message = 'Nicht alle Abschnittstexte wurden in den Bericht uebernommen. Der Export verwendet fuer diese Abschnitte Fallback-/Standardtexte.';
-      window.alert(message);
-      setErrorMsg(message);
-      setStatus('error');
-      return;
-    }
-
     setStatus('generating');
     setErrorMsg('');
     const messages = [
