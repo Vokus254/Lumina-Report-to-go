@@ -5,8 +5,7 @@
  * Rückgabewert wird gegen JahresabschlussPartialSchema validiert.
  */
 import * as XLSX from 'xlsx';
-import { JahresabschlussPartialSchema } from '../../packages/schema/src';
-import type { JahresabschlussData } from '../../packages/schema/src';
+import type { JahresabschlussData } from '../types';
 
 type AnyObject = Record<string, unknown>;
 
@@ -120,22 +119,27 @@ function getComment(cell: XLSX.CellObject): string {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export function importExcel(buffer: Buffer): JahresabschlussData {
-  // Input validation
-  if (!buffer || buffer.length < 4) {
-    throw new Error('Ungültige Datei: Buffer zu klein oder leer');
+export async function importExcelClient(file: File): Promise<JahresabschlussData> {
+  const arrayBuffer = await file.arrayBuffer();
+  return importExcelArrayBuffer(arrayBuffer);
+}
+
+export function importExcelArrayBuffer(arrayBuffer: ArrayBuffer): JahresabschlussData {
+  const bytes = new Uint8Array(arrayBuffer);
+  if (!bytes || bytes.length < 4) {
+    throw new Error('Excel-Datei konnte nicht importiert werden.');
   }
-  if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
-    throw new Error('Ungültige Datei: Kein gültiges XLSX-Format (kein ZIP/PK-Header)');
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+    throw new Error('Excel-Datei konnte nicht importiert werden.');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const wb = XLSX.read(buffer, {
-    type: 'buffer',
+  const wb = XLSX.read(arrayBuffer, {
+    type: 'array',
     cellText: false,
     cellDates: false,
     cellNF: false,
     cellFormula: true,
+    cellComments: true,
     // cellComments is valid at runtime but not in @types/xlsx 0.18
   } as XLSX.ParsingOptions & { cellComments?: boolean });
 
@@ -333,12 +337,6 @@ export function importExcel(buffer: Buffer): JahresabschlussData {
   for (const [k, v] of Object.entries(allMapped)) {
     if (!k.startsWith('kennzahlen.')) continue;
     rawResult.kennzahlen[k.slice(11)] = Number(v) || 0;
-  }
-
-  // ── Zod-Validierung: Ergebnis gegen Schema prüfen ─────────────────
-  const parsed = JahresabschlussPartialSchema.safeParse(rawResult);
-  if (!parsed.success) {
-    console.warn('Excel-Import: Schema-Validierung mit Warnungen:', parsed.error.flatten().fieldErrors);
   }
 
   console.log('Excel-Import erfolgreich:', {

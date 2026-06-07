@@ -9,9 +9,9 @@ import fs from 'fs';
 import AdmZip from 'adm-zip';
 
 const require = createRequire(import.meta.url);
-const { renderAnhang } = require('../../dist/renderers/anhangRenderer');
-const { SECTION_PROMPT_RULES } = require('../../dist/services/openAiSectionTextService');
-const { JahresabschlussSchema } = require('@nexus/schema');
+const { renderAnhang } = require('../../dist/backend/renderers/anhangRenderer');
+const { SECTION_PROMPT_RULES } = require('../../dist/backend/services/openAiSectionTextService');
+const { JahresabschlussSchema } = require('../../dist/packages/schema/src');
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../fixtures');
 

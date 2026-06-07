@@ -1,5 +1,5 @@
 import { Document, Packer, PageBreak, Paragraph } from 'docx';
-import type { JahresabschlussData, AiTexts } from '@nexus/schema';
+import type { JahresabschlussData, AiTexts } from '../../packages/schema/src';
 import {
   sp, divider, h1, h2, h3, para,
   titlePage, makeHeader, makeFooter, signatureBlock, kpiTable, dataTable,

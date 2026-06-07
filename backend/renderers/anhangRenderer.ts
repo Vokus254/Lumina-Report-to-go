@@ -1,5 +1,5 @@
 ﻿import { Document, Packer, PageBreak, Paragraph, TextRun, AlignmentType, HighlightColor } from 'docx';
-import type { JahresabschlussData, AiTexts } from '@nexus/schema';
+import type { JahresabschlussData, AiTexts } from '../../packages/schema/src';
 import type { AnhangSectionTexts, SectionTextOutput } from '../services/openAiSectionTextService';
 import {
   sp, divider, h1, h2, h3, para,

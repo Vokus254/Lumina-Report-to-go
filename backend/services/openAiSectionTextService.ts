@@ -1,4 +1,4 @@
-import type { JahresabschlussData } from '@nexus/schema';
+import type { JahresabschlussData } from '../../packages/schema/src';
 
 export type SectionTextParagraph = {
   type: 'confirmed' | 'unconfirmed';

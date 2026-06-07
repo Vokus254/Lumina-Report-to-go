@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AiTextsSchema } from '@nexus/schema';
-import type { AiTexts, JahresabschlussData } from '@nexus/schema';
+import { AiTextsSchema } from '../../packages/schema/src';
+import type { AiTexts, JahresabschlussData } from '../../packages/schema/src';
 
 const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 

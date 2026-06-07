@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import type { JahresabschlussData, ReportTextEntry, StepProps } from '../types';
+import { importExcelClient } from '../utils/importExcelClient';
 
 type SectionTextResult = {
   text: string;
@@ -1331,14 +1332,10 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
       const excelResp = await fetch('/testdata/Jahresabschluss_Eingabevorlage_Beispiel1.xlsx');
       if (!excelResp.ok) throw new Error('Beispiel-Excel konnte nicht geladen werden.');
       const excelBlob = await excelResp.blob();
-      const formData = new FormData();
-      formData.append('file', new File([excelBlob], 'Jahresabschluss_Eingabevorlage_Beispiel1.xlsx'));
-      const importResp = await fetch('/api/import-excel', { method: 'POST', body: formData });
-      const importJson = await importResp.json().catch(() => ({ error: importResp.statusText })) as { data?: JahresabschlussData; error?: string };
-      if (!importResp.ok || !importJson.data) throw new Error(importJson.error ?? 'Excel-Import fehlgeschlagen.');
+      const importedData = await importExcelClient(new File([excelBlob], 'Jahresabschluss_Eingabevorlage_Beispiel1.xlsx'));
 
-      applyImportedDataToState(importJson.data);
-      let workingData = mergeImportedData(importJson.data);
+      applyImportedDataToState(importedData);
+      let workingData = mergeImportedData(importedData);
       const reportTexts: Record<string, ReportTextEntry> = {};
       const errors: string[] = [];
 

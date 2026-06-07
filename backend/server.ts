@@ -3,7 +3,7 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import archiver from 'archiver';
 import multer from 'multer';
-import { JahresabschlussSchema } from '@nexus/schema';
+import { JahresabschlussSchema } from '../packages/schema/src';
 import { generateTexts } from './services/aiTextService';
 import { renderLagebericht } from './renderers/lageberichtRenderer';
 import { renderBilanzGuV }   from './renderers/bilanzGuvRenderer';
@@ -202,6 +202,6 @@ app.post('/api/preview-texts', async (req: Request, res: Response) => {
 export { app };
 
 if (require.main === module) {
-  const PORT = process.env['PORT'] ? parseInt(process.env['PORT']) : 3001;
-  app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+  const port = process.env['PORT'] || 3001;
+  app.listen(port, () => console.log(`Server running on port ${port}`));
 }

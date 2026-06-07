@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { JahresabschlussData, ReportTextEntry } from '../types';
 import { DEFAULT_DATA } from '../utils/defaultData';
+import { importExcelClient } from '../utils/importExcelClient';
 
 export type GenerateStatus = 'idle' | 'generating' | 'done' | 'error';
 export type ImportStatus   = 'idle' | 'loading' | 'done' | 'error';
@@ -97,12 +98,7 @@ export function useJahresabschluss() {
     setImportStatus('loading');
     setImportMsg('Excel wird eingelesen...');
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const resp = await fetch('/api/import-excel', { method: 'POST', body: formData });
-      const json = await resp.json() as { data?: JahresabschlussData; error?: string };
-      if (!resp.ok) throw new Error(json.error ?? resp.statusText);
-      const imported = json.data!;
+      const imported = await importExcelClient(file);
       setData((prev: any) => ({
         ...prev,
         stammdaten: { ...prev.stammdaten, ...imported.stammdaten },
@@ -120,7 +116,8 @@ export function useJahresabschluss() {
       setStep(0);
     } catch (err) {
       setImportStatus('error');
-      setImportMsg(`Fehler: ${(err as Error).message}`);
+      console.error(err);
+      setImportMsg('Excel-Datei konnte nicht importiert werden.');
     }
     if (fileRef.current) fileRef.current.value = '';
   };

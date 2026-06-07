@@ -7,7 +7,7 @@ import {
 // Simple inline types since docx v9 doesn't export these as named interfaces
 type ITableCellBorders = Record<string, { style: string; size: number; color: string } | undefined>;
 type ITableCellMargin  = { top?: number; bottom?: number; left?: number; right?: number };
-import type { Vorstandsmitglied } from '@nexus/schema';
+import type { Vorstandsmitglied } from '../../packages/schema/src';
 
 // ── Palette ────────────────────────────────────────────────────────
 export const C = {

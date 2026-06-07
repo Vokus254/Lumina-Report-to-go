@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AiTextsSchema } from '@nexus/schema';
+import { AiTextsSchema } from '../../../packages/schema/src';
 
 const createMock = vi.fn();
 
