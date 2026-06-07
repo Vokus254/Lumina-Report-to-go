@@ -190,14 +190,14 @@ app.post('/api/generate', async (req: Request, res: Response) => {
     console.error('Generation error:', err);
     const e = err as { status?: number; message?: string };
     const msg = String(e?.message ?? '');
-    if (e?.status === 529 || msg.includes('overloaded') || msg.includes('529')) {
-      return res.status(503).json({ error: 'Claude ist aktuell überlastet. Bitte in einigen Minuten erneut versuchen.' });
+    if (msg.includes('OPENAI_API_KEY')) {
+      return res.status(503).json({ error: 'OPENAI_API_KEY fehlt auf dem Server.' });
+    }
+    if (msg.includes('OpenAI request failed') || msg.includes('overloaded') || msg.includes('529')) {
+      return res.status(503).json({ error: `OpenAI konnte die Texte aktuell nicht erzeugen: ${msg}` });
     }
     if (e?.status === 401 || e?.status === 403) {
-      return res.status(401).json({ error: 'Claude API-Key ungültig oder fehlende Berechtigung.' });
-    }
-    if (msg.includes('OpenAI request failed') || msg.includes('OPENAI_API_KEY')) {
-      return res.status(503).json({ error: `Abschnittstexte konnten nicht erzeugt werden: ${msg}` });
+      return res.status(401).json({ error: 'OpenAI API-Key ungültig oder fehlende Berechtigung.' });
     }
     res.status(500).json({ error: msg || 'Unbekannter Fehler' });
   }

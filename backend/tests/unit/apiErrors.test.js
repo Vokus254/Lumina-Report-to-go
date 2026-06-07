@@ -1,5 +1,5 @@
 /**
- * Test: Claude-API-Fehlerklassifizierung
+ * Test: API-Fehlerklassifizierung
  * Simuliert overloaded_error und auth-Fehler ohne echten API-Aufruf.
  */
 import { describe, it, expect } from 'vitest';
@@ -11,7 +11,7 @@ function classifyApiError(err) {
   return 'generic';
 }
 
-describe('Claude API Fehlerklassifizierung', () => {
+describe('API Fehlerklassifizierung', () => {
   it('erkennt overloaded via status 529', () => {
     expect(classifyApiError({ status: 529 })).toBe('overloaded');
   });

@@ -1172,7 +1172,7 @@ export async function generateSectionTextsForAnhang(data: JahresabschlussData): 
 export async function generateSectionText(input: GenerateSectionTextInput): Promise<SectionTextOutput> {
   const apiKey = process.env['OPENAI_API_KEY'];
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is required for OpenAI section text generation.');
+    throw new Error('OPENAI_API_KEY fehlt auf dem Server.');
   }
 
   const requestBody = buildOpenAiSectionTextRequest(input);

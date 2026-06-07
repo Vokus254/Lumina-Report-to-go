@@ -26,7 +26,7 @@ describe('openAiSectionTextService', () => {
     delete process.env['OPENAI_API_KEY'];
 
     await expect(generateSectionText({ sectionId: 'anhang_b4_eigenkapital' }))
-      .rejects.toThrow('OPENAI_API_KEY is required');
+      .rejects.toThrow('OPENAI_API_KEY fehlt auf dem Server.');
   });
 
   it('liefert valides Schema aus gemockter OpenAI-Antwort', async () => {
