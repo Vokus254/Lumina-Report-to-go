@@ -26,8 +26,13 @@
     "../packages/schema/src/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "../packages/schema/src/__tests__",
+    "../packages/schema/src/**/*.test.ts",
+    "../packages/schema/src/**/*.spec.ts",
+    "tests",
     "dist",
-    "tests"
+    "node_modules"
   ]
 }
