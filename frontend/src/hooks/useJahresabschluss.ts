@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { JahresabschlussData, ReportTextEntry } from '../types';
 import { DEFAULT_DATA } from '../utils/defaultData';
 import { importExcelClient } from '../utils/importExcelClient';
-import { apiUrl } from '../utils/api';
+import { apiFetch, readApiError } from '../utils/api';
 
 export type GenerateStatus = 'idle' | 'generating' | 'done' | 'error';
 export type ImportStatus   = 'idle' | 'loading' | 'done' | 'error';
@@ -126,7 +126,7 @@ export function useJahresabschluss() {
   const generate = async () => {
     const missingReportTexts = REQUIRED_REPORT_TEXTS.filter(sectionId => !data.reportTexts?.[sectionId]);
     if (missingReportTexts.length > 0) {
-      const message = 'Nicht alle Abschnittstexte wurden in den Bericht übernommen. Der Export verwendet für diese Abschnitte Fallback-/Standardtexte.';
+      const message = 'Nicht alle Abschnittstexte wurden in den Bericht uebernommen. Der Export verwendet fuer diese Abschnitte Fallback-/Standardtexte.';
       window.alert(message);
       setErrorMsg(message);
       setStatus('error');
@@ -136,26 +136,24 @@ export function useJahresabschluss() {
     setStatus('generating');
     setErrorMsg('');
     const messages = [
-      'Claude liest Ihre Finanzdaten...',
-      'Lagebericht wird formuliert...',
-      'Bilanz und GuV werden strukturiert...',
-      'Anhang wird zusammengestellt...',
-      'Word-Dokumente werden gerendert...',
+      'Daten werden geprueft...',
+      'KI-Texte werden erzeugt...',
+      'Fallback-Texte werden ergaenzt...',
+      'Word-Berichte werden generiert...',
       'ZIP wird erstellt...',
     ];
     let mi = 0;
     setLoadingMsg(messages[0]);
     const timer = setInterval(() => { mi = (mi + 1) % messages.length; setLoadingMsg(messages[mi]); }, 4000);
     try {
-      const resp = await fetch(apiUrl('/api/generate'), {
+      const resp = await apiFetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       clearInterval(timer);
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: resp.statusText })) as { error?: string };
-        throw new Error(err.error ?? resp.statusText);
+        throw new Error(await readApiError(resp));
       }
       const blob = await resp.blob();
       const url  = URL.createObjectURL(blob);

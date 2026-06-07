@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, { type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import archiver from 'archiver';
 import multer from 'multer';
@@ -13,15 +13,69 @@ import { generateSectionText, generateSectionTextsForAnhang } from './services/o
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const app    = express();
+app.set('trust proxy', 1);
+
+const DEFAULT_CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:3000'];
+function allowedCorsOrigins(): string[] {
+  return (process.env['CORS_ORIGINS'] || DEFAULT_CORS_ORIGINS.join(','))
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+}
 
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'https://lumina-report-to-go.vercel.app',
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedCorsOrigins().includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Pilot-Access-Code'],
 }));
 app.use(express.json({ limit: '2mb' }));
+
+type RateLimitBucket = { count: number; resetAt: number };
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+
+function requirePilotAccess(req: Request, res: Response, next: NextFunction) {
+  const expectedCode = process.env['PILOT_ACCESS_CODE'];
+  if (!expectedCode) return next();
+
+  const providedCode = req.header('X-Pilot-Access-Code') || '';
+  if (providedCode !== expectedCode) {
+    return res.status(401).json({
+      error: 'Zugangscode ungueltig oder fehlt.',
+      code: 'PILOT_ACCESS_REQUIRED',
+    });
+  }
+
+  return next();
+}
+
+function rateLimit(name: string, maxRequests: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const now = Date.now();
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const key = `${name}:${ip}`;
+    const current = rateLimitBuckets.get(key);
+    const bucket = current && current.resetAt > now
+      ? current
+      : { count: 0, resetAt: now + 60 * 60 * 1000 };
+
+    bucket.count += 1;
+    rateLimitBuckets.set(key, bucket);
+
+    if (bucket.count > maxRequests) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+      return res.status(429).json({
+        error: 'Zu viele Anfragen. Bitte versuchen Sie es spaeter erneut.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfterSeconds,
+      });
+    }
+
+    return next();
+  };
+}
 
 // ── Health ─────────────────────────────────────────────────────────
 app.get('/api/health', (_: Request, res: Response) => {
@@ -100,7 +154,7 @@ function parseSectionTextRequest(body: unknown): SectionTextRequestBody | null {
   };
 }
 
-app.post('/api/ai/section-text', async (req: Request, res: Response) => {
+app.post('/api/ai/section-text', requirePilotAccess, async (req: Request, res: Response) => {
   const parsed = parseSectionTextRequest(req.body);
   if (!parsed) {
     return res.status(422).json({ error: 'Ungueltige Eingabedaten fuer Abschnittstext.' });
@@ -124,25 +178,34 @@ app.post('/api/ai/section-text', async (req: Request, res: Response) => {
     return res.json(output);
   } catch (err) {
     const msg = (err as Error).message || 'Unbekannter KI-Fehler';
-    const status = msg.includes('OPENAI_API_KEY') || msg.includes('OpenAI request failed') ? 503 : 500;
-    return res.status(status).json({ error: msg });
+    const status = msg.includes('OPENAI_API_KEY') || msg.includes('OpenAI request failed') || msg.toLowerCase().includes('timeout') ? 503 : 500;
+    return res.status(status).json({
+      error: status === 503 ? `KI-Dienst aktuell nicht erreichbar: ${msg}` : msg,
+      code: status === 503 ? 'AI_SERVICE_UNAVAILABLE' : 'AI_SECTION_ERROR',
+    });
   }
 });
 
 // ── Import Excel ───────────────────────────────────────────────────
-app.post('/api/import-excel', upload.single('file'), (req: Request, res: Response) => {
+function importExcelHandler(req: Request, res: Response) {
   try {
     if (!req.file) return res.status(400).json({ error: 'Keine Datei empfangen' });
+    if (!req.file.originalname.toLowerCase().endsWith('.xlsx')) {
+      return res.status(400).json({ error: 'Ungueltiges Dateiformat. Bitte eine .xlsx-Datei hochladen.' });
+    }
     const data = importExcel(req.file.buffer);
     res.json({ data });
   } catch (err) {
     console.error('Excel import error:', err);
     res.status(500).json({ error: (err as Error).message });
   }
-});
+}
+
+app.post('/api/import-excel', requirePilotAccess, rateLimit('import', 30), upload.single('file'), importExcelHandler);
+app.post('/api/import', requirePilotAccess, rateLimit('import', 30), upload.single('file'), importExcelHandler);
 
 // ── Generate all three documents ───────────────────────────────────
-app.post('/api/generate', async (req: Request, res: Response) => {
+app.post('/api/generate', requirePilotAccess, rateLimit('generate', 10), async (req: Request, res: Response) => {
   // Zod-Validierung des Request-Body
   const parsed = JahresabschlussSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -196,15 +259,18 @@ app.post('/api/generate', async (req: Request, res: Response) => {
     if (msg.includes('OpenAI request failed') || msg.includes('overloaded') || msg.includes('529')) {
       return res.status(503).json({ error: `OpenAI konnte die Texte aktuell nicht erzeugen: ${msg}` });
     }
+    if (msg.toLowerCase().includes('timeout')) {
+      return res.status(503).json({ error: `KI-Dienst nicht erreichbar oder Timeout: ${msg}` });
+    }
     if (e?.status === 401 || e?.status === 403) {
       return res.status(401).json({ error: 'OpenAI API-Key ungültig oder fehlende Berechtigung.' });
     }
-    res.status(500).json({ error: msg || 'Unbekannter Fehler' });
+    res.status(500).json({ error: msg || 'Der Jahresabschluss konnte nicht erzeugt werden. Bitte pruefen Sie die Eingaben und versuchen Sie es erneut.' });
   }
 });
 
 // ── Preview AI texts ───────────────────────────────────────────────
-app.post('/api/preview-texts', async (req: Request, res: Response) => {
+app.post('/api/preview-texts', requirePilotAccess, async (req: Request, res: Response) => {
   const parsed = JahresabschlussSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(422).json({ error: 'Ungültige Eingabedaten', details: parsed.error.flatten() });
@@ -215,6 +281,21 @@ app.post('/api/preview-texts', async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
+});
+
+app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (!err) return next();
+  const error = err as { code?: string; message?: string };
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      error: 'Datei zu gross. Bitte laden Sie eine Excel-Datei mit maximal 10 MB hoch.',
+      code: 'FILE_TOO_LARGE',
+    });
+  }
+  return res.status(500).json({
+    error: error.message || 'Die Anfrage konnte nicht verarbeitet werden.',
+    code: 'REQUEST_FAILED',
+  });
 });
 
 export { app };

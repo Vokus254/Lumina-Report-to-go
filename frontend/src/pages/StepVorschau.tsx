@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
 import type { JahresabschlussData, ReportTextEntry, StepProps } from '../types';
 import { importExcelClient } from '../utils/importExcelClient';
-import { apiUrl } from '../utils/api';
+import { apiFetch, readApiError } from '../utils/api';
 
 type SectionTextResult = {
   text: string;
@@ -1201,13 +1201,13 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
     setSectionResults(prev => ({ ...prev, [sectionId]: undefined }));
 
     try {
-      const resp = await fetch(apiUrl('/api/ai/section-text'), {
+      const resp = await apiFetch('/api/ai/section-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = await resp.json().catch(() => ({ error: resp.statusText }));
-      if (!resp.ok) throw new Error(json.error || resp.statusText);
+      const json = await resp.clone().json().catch(() => ({ error: resp.statusText }));
+      if (!resp.ok) throw new Error(await readApiError(resp));
       const result: SectionTextResult = {
         text: json.text || '',
         paragraphs: Array.isArray(json.paragraphs) ? json.paragraphs : [],
@@ -1317,14 +1317,13 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
   });
 
   const downloadGeneratedZip = async (sourceData: JahresabschlussData) => {
-    const resp = await fetch(apiUrl('/api/generate'), {
+    const resp = await apiFetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sourceData),
     });
     if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: resp.statusText })) as { error?: string };
-      throw new Error(err.error ?? resp.statusText);
+      throw new Error(await readApiError(resp));
     }
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
@@ -1611,7 +1610,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
     <div>
       <div style={styles.info}>
         <span style={styles.infoIcon}>i</span>
-        <span>Bitte prüfen Sie alle Angaben. Anschließend generiert Claude alle Freitexte und erstellt die drei Word-Dokumente als ZIP-Download. Dieser Vorgang dauert ca. 30-60 Sekunden.</span>
+        <span>Bitte prüfen Sie alle Angaben. Anschließend werden die Freitexte erzeugt und die drei Word-Dokumente als ZIP-Download erstellt. Dieser Vorgang dauert ca. 30-60 Sekunden.</span>
       </div>
 
       {renderReportTextOverview()}

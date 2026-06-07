@@ -41,7 +41,7 @@ export default function App() {
             <span style={S.logoIcon}>📑</span>
             <div>
               <div style={S.logoTitle}>Jahresabschluss Generator</div>
-              <div style={S.logoSub}>HGB-konforme Dokumente mit KI-Freitexten</div>
+              <div style={S.logoSub}>HGB-orientierte Berichtsentwuerfe mit KI-Freitexten</div>
             </div>
           </div>
           <div style={S.headerRight}>

@@ -1,44 +1,39 @@
-# Jahresabschluss Generator
+# Lumina Report to Go
 
-MVP zur Erstellung HGB-orientierter Jahresabschlussdokumente als DOCX/ZIP:
-Lagebericht, Bilanz/GuV und Anhang. Die Freitexte werden im Normalbetrieb per
-Claude API erzeugt; fuer lokale Exporttests kann ein Mock-Modus genutzt werden.
+MVP zur Erstellung HGB-orientierter Jahresabschlussentwuerfe als DOCX/ZIP:
+Lagebericht, Bilanz/GuV und Anhang. Die Freitexte werden im Normalbetrieb mit
+OpenAI erzeugt; fuer lokale Exporttests kann ein Mock-Modus genutzt werden.
 
 ## Architektur
 
 ```text
 nexus-app/
 ├── backend/            Express API mit TypeScript
-│   ├── server.ts
-│   ├── services/
-│   ├── renderers/
-│   └── utils/
 ├── frontend/           React Wizard mit Vite + TypeScript
-│   └── src/
 └── packages/schema/    Gemeinsame Zod-Schemas und Typen
 ```
 
-## Setup
+## Environment Variables
 
-Voraussetzungen:
-- Node.js >= 18
-- Anthropic API-Key fuer echten KI-Betrieb
-
-Backend konfigurieren:
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-```
-
-In `backend/.env`:
+Backend:
 
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
+AI_PROVIDER=openai
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+PILOT_ACCESS_CODE=your_pilot_access_code_here
 PORT=3001
 USE_MOCK_AI_TEXTS=false
 ```
+
+Frontend:
+
+```env
+VITE_API_BASE_URL=http://localhost:3001
+```
+
+Keine echten API-Keys in Git, Markdown, Logs oder Beispiel-Dateien speichern.
 
 ## Start Entwicklung
 
@@ -46,6 +41,7 @@ Backend:
 
 ```bash
 cd backend
+npm install
 npm run dev
 ```
 
@@ -57,22 +53,24 @@ npm install
 npm run dev
 ```
 
-App:
+## Pilot-Zugangsschutz
 
-```text
-http://localhost:3000
-```
+Wenn `PILOT_ACCESS_CODE` im Backend gesetzt ist, muessen geschuetzte API-Aufrufe
+den Header `X-Pilot-Access-Code` mitsenden. Das Frontend fragt den Code beim
+ersten geschuetzten API-Aufruf ab und speichert ihn lokal im Browser.
+
+`/health` bleibt ohne Zugangscode erreichbar.
 
 ## Mock-AI
 
-Fuer lokalen DOCX-/ZIP-Export ohne externen Claude-API-Call:
+Fuer lokalen DOCX-/ZIP-Export ohne externen OpenAI-API-Call:
 
 ```env
 USE_MOCK_AI_TEXTS=true
 ```
 
 Danach Backend neu starten. `/api/generate` verwendet dann deterministische
-Mock-Texte und erzeugt trotzdem die DOCX-Dateien im ZIP.
+Mock- oder Fallback-Texte und erzeugt weiterhin die DOCX-Dateien im ZIP.
 
 ## Tests
 
@@ -82,12 +80,13 @@ Backend:
 cd backend
 npm test
 npm run type-check
+npm run build
 ```
 
-Schema-Paket:
+Frontend:
 
 ```bash
-cd packages/schema
+cd frontend
+npm run type-check
 npm run build
-npm test
 ```
