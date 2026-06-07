@@ -199,7 +199,7 @@ function buildDrivers(items: Array<{ label: string; current: number; previous: n
       changePercent: changePercent(item.current, item.previous),
     }))
     .filter(item => item.current !== 0 || item.previous !== 0)
-    .sort((a, b) => Math.abs(b.changeAmount) - Math.abs(a.changeAmount));
+    .sort((a: any, b: any) => Math.abs(b.changeAmount) - Math.abs(a.changeAmount));
 }
 
 function standardRequirements(positionName: string) {
@@ -745,7 +745,7 @@ function buildSectionTextRequest(sectionId: AssistantSectionId, data: Jahresabsc
   if (sectionId === 'anhang.guv.umsatzerloese') {
     const currentTotal = num(guvValues['umsatzerloese']);
     const previousTotal = num(kennzahlenValues['vorjahr_umsatz']) || num(guvValues['vj_umsatzerloese']);
-    const segmentDetails = (segmente || []).map(segment => ({
+    const segmentDetails = (segmente || []).map((segment: any) => ({
       name: segment.name,
       current: segment.umsatz || 0,
       previous: segment.vorjahr_umsatz || 0,
@@ -761,14 +761,14 @@ function buildSectionTextRequest(sectionId: AssistantSectionId, data: Jahresabsc
       umsatzaufgliederung_vorhanden: false,
       preis_mengeneffekte_vorhanden: false,
       mainDrivers: segmentDetails
-        .map(segment => ({
+        .map((segment: any) => ({
           label: segment.name,
           current: segment.current,
           previous: segment.previous,
           changeAmount: segment.changeAmount,
           changePercent: segment.changePercent,
         }))
-        .sort((a, b) => Math.abs(b.changeAmount) - Math.abs(a.changeAmount)),
+        .sort((a: any, b: any) => Math.abs(b.changeAmount) - Math.abs(a.changeAmount)),
     }, [currentTotal, previousTotal]);
   }
 

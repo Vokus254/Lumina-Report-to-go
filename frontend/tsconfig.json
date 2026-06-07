@@ -16,5 +16,5 @@
       "@nexus/schema": ["../packages/schema/src/index.ts"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src"]
 }

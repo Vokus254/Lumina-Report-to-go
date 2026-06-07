@@ -15,7 +15,7 @@ export default function StepSegmente({ data, onArrayChange, onAddItem, onRemoveI
             </tr>
           </thead>
           <tbody>
-            {data.segmente.map((seg, index) => (
+            {data.segmente.map((seg: any, index: number) => (
               <tr key={`segment-${index}`}>
                 <td style={styles.inputCell}>
                   <TextCell value={seg.name} onChange={value => onArrayChange('segmente', index, 'name', value)} />
@@ -54,7 +54,7 @@ export default function StepSegmente({ data, onArrayChange, onAddItem, onRemoveI
             </tr>
           </thead>
           <tbody>
-            {data.organe.vorstand.map((person, index) => (
+            {data.organe.vorstand.map((person: any, index: number) => (
               <tr key={`vorstand-${index}`}>
                 <td style={styles.inputCell}>
                   <TextCell value={person.name} onChange={value => onArrayChange('organe.vorstand', index, 'name', value)} />
@@ -92,7 +92,7 @@ export default function StepSegmente({ data, onArrayChange, onAddItem, onRemoveI
             </tr>
           </thead>
           <tbody>
-            {data.organe.aufsichtsrat.map((person, index) => (
+            {data.organe.aufsichtsrat.map((person: any, index: number) => (
               <tr key={`aufsichtsrat-${index}`}>
                 <td style={styles.inputCell}>
                   <TextCell value={person.name} onChange={value => onArrayChange('organe.aufsichtsrat', index, 'name', value)} />
@@ -130,7 +130,7 @@ export default function StepSegmente({ data, onArrayChange, onAddItem, onRemoveI
             </tr>
           </thead>
           <tbody>
-            {data.beteiligungen.map((beteiligung, index) => (
+            {data.beteiligungen.map((beteiligung: any, index: number) => (
               <tr key={`beteiligung-${index}`}>
                 <td style={styles.inputCell}>
                   <TextCell value={beteiligung.name} onChange={value => onArrayChange('beteiligungen', index, 'name', value)} />

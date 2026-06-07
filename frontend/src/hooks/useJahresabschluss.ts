@@ -36,14 +36,14 @@ export function useJahresabschluss() {
 
   // ── Field change ─────────────────────────────────────────────────
   const onChange = useCallback((section: string, field: string, value: string | number) => {
-    setData(prev => ({
+    setData((prev: any) => ({
       ...prev,
       [section]: { ...(prev as Record<string, unknown>)[section] as Record<string, unknown>, [field]: value },
     }));
   }, []);
 
   const onArrayChange = useCallback((path: string, index: number, field: string, value: string | number) => {
-    setData(prev => {
+    setData((prev: any) => {
       const parts = path.split('.');
       const d = prev as unknown as Record<string, unknown>;
       if (parts.length === 1) {
@@ -60,7 +60,7 @@ export function useJahresabschluss() {
   }, []);
 
   const onAddItem = useCallback((path: string, template: Record<string, unknown>) => {
-    setData(prev => {
+    setData((prev: any) => {
       const parts = path.split('.');
       const d = prev as unknown as Record<string, unknown>;
       if (parts.length === 1) return { ...prev, [path]: [...(d[path] as unknown[]), { ...template }] };
@@ -71,7 +71,7 @@ export function useJahresabschluss() {
   }, []);
 
   const onRemoveItem = useCallback((path: string, index: number) => {
-    setData(prev => {
+    setData((prev: any) => {
       const parts = path.split('.');
       const d = prev as unknown as Record<string, unknown>;
       if (parts.length === 1) return { ...prev, [path]: (d[path] as unknown[]).filter((_, i) => i !== index) };
@@ -82,7 +82,7 @@ export function useJahresabschluss() {
   }, []);
 
   const onTransferReportText = useCallback((entry: ReportTextEntry) => {
-    setData(prev => ({
+    setData((prev: any) => ({
       ...prev,
       reportTexts: {
         ...(prev.reportTexts ?? {}),
@@ -103,7 +103,7 @@ export function useJahresabschluss() {
       const json = await resp.json() as { data?: JahresabschlussData; error?: string };
       if (!resp.ok) throw new Error(json.error ?? resp.statusText);
       const imported = json.data!;
-      setData(prev => ({
+      setData((prev: any) => ({
         ...prev,
         stammdaten: { ...prev.stammdaten, ...imported.stammdaten },
         segmente:   imported.segmente.length > 0 ? imported.segmente : prev.segmente,
