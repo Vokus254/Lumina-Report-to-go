@@ -11,10 +11,7 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "baseUrl": ".",
-    "paths": {
-      "@nexus/schema": ["../packages/schema/src/index.ts"]
-    }
+    "baseUrl": "."
   },
   "include": ["src"]
 }
