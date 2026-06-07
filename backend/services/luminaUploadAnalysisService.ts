@@ -5,6 +5,7 @@ const DEFAULT_MODEL = 'gpt-4.1-mini';
 const OPENAI_TIMEOUT_MS = 60000;
 
 type MappingRecord = Record<string, unknown>;
+type CompanySizeClass = 'kleinst' | 'klein' | 'mittelgross' | 'gross' | 'unbekannt';
 const AMBIGUOUS_AMOUNT_HINT = 'Zahl nicht eindeutig lesbar – bitte prüfen.';
 const AMBIGUOUS_AMOUNT_FINDING = 'Einzelne Beträge konnten wegen zusammengeklebter Word-Extraktion nicht eindeutig gelesen werden.';
 
@@ -192,6 +193,122 @@ function addAmbiguousAmountFindingOnce(result: LuminaFileAnalysisResult): void {
   });
 }
 
+function normalizedAnalysisText(result: LuminaFileAnalysisResult): string {
+  return JSON.stringify(result)
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss');
+}
+
+function inferCompanySizeClass(result: LuminaFileAnalysisResult): CompanySizeClass {
+  const haystack = normalizedAnalysisText(result);
+  if (/\bkleinst(?:kapitalgesellschaft|gesellschaft)?\b|micro/.test(haystack)) return 'kleinst';
+  if (/\bkleine? kapitalgesellschaft\b|\bkleine? gmbh\b|\bkleine? gesellschaft\b|\bklein\b/.test(haystack)) return 'klein';
+  if (/mittelgrosse? kapitalgesellschaft|mittelgrosse? gesellschaft|mittelgross|mittelgro/.test(haystack)) return 'mittelgross';
+  if (/\bgrosse? kapitalgesellschaft\b|\bgrosse? gesellschaft\b|\bgross\b|\bgro/.test(haystack)) return 'gross';
+  return 'unbekannt';
+}
+
+function hasCapitalCompanyForm(result: LuminaFileAnalysisResult): boolean {
+  return /\bgmbh\b|\bggmbh\b|\bug\b|\bag\b|\bkgaa\b|kapitalgesellschaft/.test(normalizedAnalysisText(result));
+}
+
+function hasSpecialNonProfitOrLiquidationContext(result: LuminaFileAnalysisResult): boolean {
+  return /\bggmbh\b|gemeinnuetzig|gemeinnutzig|stiftung|\bi\.?\s*l\.?\b|in liquidation|liquidation/.test(normalizedAnalysisText(result));
+}
+
+function boolLike(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase();
+    return normalized.includes('true') || normalized.includes('ja') || normalized.includes('vorhanden');
+  }
+  return false;
+}
+
+function missingItemText(item: unknown): string {
+  const record = item && typeof item === 'object' && !Array.isArray(item) ? item as Record<string, unknown> : {};
+  return `${String(record['bereich'] ?? '')} ${String(record['fehlende_angabe'] ?? '')} ${String(record['warum_erforderlich'] ?? '')}`.toLowerCase();
+}
+
+function upsertMissingItem(
+  result: LuminaFileAnalysisResult,
+  keyword: 'lagebericht' | 'anhang',
+  item: { prioritaet: string; bereich: string; fehlende_angabe: string; warum_erforderlich: string; beispiel_nachfrage_an_nutzer: string },
+): void {
+  const existing = result.fehlende_angaben.find(entry => missingItemText(entry).includes(keyword));
+  if (existing) {
+    Object.assign(existing, item);
+    return;
+  }
+  result.fehlende_angaben.push(item);
+}
+
+export function normalizeMissingDisclosureRequirements(result: LuminaFileAnalysisResult): LuminaFileAnalysisResult {
+  const sizeClass = inferCompanySizeClass(result);
+  const capitalCompany = hasCapitalCompanyForm(result);
+  const specialContext = hasSpecialNonProfitOrLiquidationContext(result);
+  const parts = result.erkannte_abschlussbestandteile ?? {};
+  const anhangMissing = !boolLike(parts['anhang']);
+  const lageberichtMissing = !boolLike(parts['lagebericht']);
+
+  if (lageberichtMissing) {
+    if (sizeClass === 'mittelgross' || sizeClass === 'gross') {
+      upsertMissingItem(result, 'lagebericht', {
+        prioritaet: 'zwingend',
+        bereich: 'Lagebericht',
+        fehlende_angabe: 'Lagebericht fehlt',
+        warum_erforderlich: 'Bei mittelgrossen und grossen Kapitalgesellschaften ist der Lagebericht grundsaetzlich erforderlich.',
+        beispiel_nachfrage_an_nutzer: 'Bitte laden Sie den Lagebericht hoch oder bestaetigen Sie, dass die Gesellschaft nicht lageberichtspflichtig ist.',
+      });
+    } else if (sizeClass === 'klein' || sizeClass === 'kleinst') {
+      upsertMissingItem(result, 'lagebericht', {
+        prioritaet: 'optional',
+        bereich: 'Lagebericht',
+        fehlende_angabe: 'Lagebericht nicht hochgeladen',
+        warum_erforderlich: 'Bei kleinen Kapitalgesellschaften ist ein Lagebericht nach HGB grundsaetzlich nicht zwingend, sofern keine Sonderpflicht besteht.',
+        beispiel_nachfrage_an_nutzer: 'Bitte bestaetigen Sie die Groessenklasse und ob Satzung, Foerdermittelgeber oder Pruefungspflichten einen Lagebericht verlangen.',
+      });
+    } else {
+      upsertMissingItem(result, 'lagebericht', {
+        prioritaet: 'empfohlen',
+        bereich: 'Lagebericht',
+        fehlende_angabe: 'Lageberichtspflicht zu pruefen',
+        warum_erforderlich: specialContext
+          ? 'Pflicht abhaengig von Groessenklasse, Satzung, Gemeinnuetzigkeit, Liquidationsstatus und Pruefungspflicht zu pruefen.'
+          : 'Pflicht abhaengig von Groessenklasse, Rechtsform und Pruefungspflicht zu pruefen.',
+        beispiel_nachfrage_an_nutzer: 'Welche Groessenklasse liegt vor und besteht nach Satzung, Pruefungsauftrag oder Sonderrecht eine Lageberichtspflicht?',
+      });
+    }
+  }
+
+  if (anhangMissing && capitalCompany) {
+    if (sizeClass === 'kleinst') {
+      upsertMissingItem(result, 'anhang', {
+        prioritaet: 'empfohlen',
+        bereich: 'Anhang',
+        fehlende_angabe: 'Anhang oder ersetzende Angaben fehlen',
+        warum_erforderlich: 'Bei Kleinstkapitalgesellschaften koennen Erleichterungen greifen; erforderliche Angaben koennen ggf. unter der Bilanz erfolgen.',
+        beispiel_nachfrage_an_nutzer: 'Liegt eine Kleinstkapitalgesellschaft vor und wurden die erforderlichen Angaben unter der Bilanz gemacht?',
+      });
+    } else {
+      upsertMissingItem(result, 'anhang', {
+        prioritaet: 'zwingend',
+        bereich: 'Anhang',
+        fehlende_angabe: 'Anhang fehlt',
+        warum_erforderlich: sizeClass === 'unbekannt'
+          ? 'Bei Kapitalgesellschaften ist der Anhang grundsaetzlich erforderlich; etwaige Erleichterungen sind groessenabhaengig zu pruefen.'
+          : 'Bei Kapitalgesellschaften ist der Anhang grundsaetzlich Bestandteil des Jahresabschlusses.',
+        beispiel_nachfrage_an_nutzer: 'Bitte laden Sie den Anhang hoch oder bestaetigen Sie Groessenklasse und genutzte HGB-Erleichterungen.',
+      });
+    }
+  }
+
+  return result;
+}
+
 function normalizeMappingAmounts(result: LuminaFileAnalysisResult, files: NormalizedFileContent[]): LuminaFileAnalysisResult {
   result.mapping_vorschlag = result.mapping_vorschlag.map(item => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
@@ -270,7 +387,7 @@ export async function analyzeNormalizedFiles(files: NormalizedFileContent[]): Pr
     if (!validated.success) {
       throw new Error(`KI-Antwort entspricht nicht dem erwarteten JSON-Schema: ${validated.error.message}`);
     }
-    return { result: normalizeMappingAmounts(validated.data, files), model };
+    return { result: normalizeMissingDisclosureRequirements(normalizeMappingAmounts(validated.data, files)), model };
   } finally {
     clearTimeout(timeout);
   }

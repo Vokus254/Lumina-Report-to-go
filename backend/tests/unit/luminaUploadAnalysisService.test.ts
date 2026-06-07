@@ -1,6 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeAmountForAnalysis } from '../../services/luminaUploadAnalysisService';
-import { LuminaFileAnalysisResultSchema } from '../../../packages/schema/src';
+import { normalizeAmountForAnalysis, normalizeMissingDisclosureRequirements } from '../../services/luminaUploadAnalysisService';
+import { LuminaFileAnalysisResultSchema, type LuminaFileAnalysisResult } from '../../../packages/schema/src';
+
+function buildAnalysis(overrides: Partial<LuminaFileAnalysisResult> = {}): LuminaFileAnalysisResult {
+  return LuminaFileAnalysisResultSchema.parse({
+    analyse_status: {
+      gesamtbeurteilung: 'Bilanz und GuV erkannt',
+      datenqualitaet: 'mittel',
+      abschlussfaehigkeit: 'teilweise',
+      kurzbegruendung: 'Anhang und Lagebericht fehlen.',
+    },
+    dateien: [],
+    gesellschaft: { name: { wert: 'Test GmbH', quelle: 'Datei', confidence: 0.9 }, organe: [] },
+    erkannte_abschlussbestandteile: {
+      bilanz: true,
+      guv: true,
+      susa: true,
+      kontennachweis: true,
+      anhang: false,
+      lagebericht: false,
+    },
+    bilanz: {
+      aktiva: [],
+      passiva: [],
+      bilanzsumme_aktiva: null,
+      bilanzsumme_passiva: null,
+      differenz: null,
+      plausibel: null,
+    },
+    guv: {
+      verfahren: 'unbekannt',
+      positionen: [],
+      jahresergebnis: null,
+      plausibel: null,
+    },
+    mapping_vorschlag: [],
+    auffaelligkeiten: [],
+    fehlende_angaben: [{
+      prioritaet: 'zwingend',
+      bereich: 'Lagebericht',
+      fehlende_angabe: 'Lagebericht fehlt',
+      warum_erforderlich: 'Pauschal als erforderlich eingestuft.',
+      beispiel_nachfrage_an_nutzer: 'Bitte Lagebericht hochladen.',
+    }],
+    naechste_schritte: [],
+    fragen_an_nutzer: [],
+    ...overrides,
+  });
+}
 
 describe('normalizeAmountForAnalysis', () => {
   it('multipliziert TEUR-Beträge mit 1.000', () => {
@@ -126,5 +173,58 @@ describe('LuminaFileAnalysisResultSchema', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe('normalizeMissingDisclosureRequirements', () => {
+  it('stuft fehlenden Lagebericht bei kleiner GmbH nicht als zwingend ein', () => {
+    const analysis = buildAnalysis({
+      gesellschaft: {
+        name: { wert: 'Kleine Test GmbH', quelle: 'Datei', confidence: 0.9 },
+        rechtsform: { wert: 'GmbH', quelle: 'Datei', confidence: 0.9 },
+        groessenklasse: { wert: 'kleine Kapitalgesellschaft', quelle: 'Datei', confidence: 0.8 },
+        organe: [],
+      },
+    });
+
+    const result = normalizeMissingDisclosureRequirements(analysis);
+    const lagebericht = result.fehlende_angaben.find(item => item.bereich === 'Lagebericht');
+
+    expect(lagebericht?.prioritaet).not.toBe('zwingend');
+    expect(lagebericht?.prioritaet).toBe('optional');
+    expect(lagebericht?.warum_erforderlich).toContain('nicht zwingend');
+  });
+
+  it('stuft fehlenden Lagebericht bei mittelgrosser GmbH als zwingend ein', () => {
+    const analysis = buildAnalysis({
+      gesellschaft: {
+        name: { wert: 'Mittel GmbH', quelle: 'Datei', confidence: 0.9 },
+        rechtsform: { wert: 'GmbH', quelle: 'Datei', confidence: 0.9 },
+        groessenklasse: { wert: 'mittelgrosse Kapitalgesellschaft', quelle: 'Datei', confidence: 0.8 },
+        organe: [],
+      },
+    });
+
+    const result = normalizeMissingDisclosureRequirements(analysis);
+    const lagebericht = result.fehlende_angaben.find(item => item.bereich === 'Lagebericht');
+
+    expect(lagebericht?.prioritaet).toBe('zwingend');
+    expect(lagebericht?.warum_erforderlich).toContain('mittelgrossen');
+  });
+
+  it('stuft fehlenden Lagebericht bei unbekannter Groessenklasse als empfohlen zu pruefen ein', () => {
+    const analysis = buildAnalysis({
+      gesellschaft: {
+        name: { wert: 'Orbis gGmbH i.L.', quelle: 'Datei', confidence: 0.9 },
+        rechtsform: { wert: 'gGmbH i.L.', quelle: 'Datei', confidence: 0.9 },
+        organe: [],
+      },
+    });
+
+    const result = normalizeMissingDisclosureRequirements(analysis);
+    const lagebericht = result.fehlende_angaben.find(item => item.bereich === 'Lagebericht');
+
+    expect(lagebericht?.prioritaet).toBe('empfohlen');
+    expect(`${lagebericht?.fehlende_angabe} ${lagebericht?.warum_erforderlich}`).toContain('zu pruefen');
   });
 });

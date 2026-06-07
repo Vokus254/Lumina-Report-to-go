@@ -47,6 +47,8 @@ Fuer bilanz.plausibel und guv.plausibel gilt:
 5. FEHLENDE UNTERLAGEN ERMITTELN
 Erstelle eine konkrete Liste der noch benötigten Unterlagen oder Angaben. Unterscheide zwingend erforderlich, für Prüfungssicherheit empfohlen und optional / zur Verbesserung der Qualität.
 
+Stufe fehlende Abschlussbestandteile nicht pauschal als zwingend ein. Beruecksichtige Rechtsform, Groessenklasse und bekannte Erleichterungen. Wenn die Pflicht nicht eindeutig beurteilbar ist, verwende "empfohlen" und schreibe "zu pruefen" in fehlende_angabe oder warum_erforderlich; formuliere dazu eine Rueckfrage.
+
 6. ANTWORTFORMAT
 Gib deine Antwort immer als valides JSON zurück. Keine Markdown-Erklärung außerhalb des JSON. Keine erfundenen Werte. Unsichere Werte mit confidence < 0.8 kennzeichnen.
 

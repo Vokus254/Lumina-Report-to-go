@@ -478,9 +478,10 @@ export default function LuminaUploadAnalysis() {
             {(['zwingend', 'empfohlen', 'optional'] as const).map(group => {
               const items = result.analysis.fehlende_angaben.filter(item => item.prioritaet === group);
               if (!items.length) return null;
+              const hasReviewItems = items.some(item => `${item.fehlende_angabe} ${item.warum_erforderlich}`.toLowerCase().includes('zu pruefen') || `${item.fehlende_angabe} ${item.warum_erforderlich}`.toLowerCase().includes('zu prüfen'));
               return (
                 <div key={group} style={S.groupBlock}>
-                  <h3 style={S.groupTitle}>{group === 'zwingend' ? 'Zwingend erforderlich' : group === 'empfohlen' ? 'Empfohlen' : 'Optional'}</h3>
+                  <h3 style={S.groupTitle}>{group === 'zwingend' ? 'Zwingend erforderlich' : group === 'empfohlen' ? (hasReviewItems ? 'Empfohlen / zu prüfen' : 'Empfohlen') : 'Optional'}</h3>
                   <div style={S.taskList}>
                     {items.map((item, index) => (
                       <div key={`${group}-${index}`} style={{ ...S.task, ...(group === 'zwingend' ? S.taskCritical : {}) }}>
