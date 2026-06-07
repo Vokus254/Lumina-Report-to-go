@@ -19,20 +19,31 @@ const app    = express();
 app.set('trust proxy', 1);
 
 const DEFAULT_CORS_ORIGINS = ['https://lumina-report-to-go.vercel.app', 'http://127.0.0.1:5173', 'http://localhost:5173'];
-function allowedCorsOrigins(): string[] {
-  return (process.env['CORS_ORIGINS'] || DEFAULT_CORS_ORIGINS.join(','))
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean);
-}
+const allowedOrigins = (process.env.CORS_ORIGINS || DEFAULT_CORS_ORIGINS.join(','))
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
-app.use(cors({
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedCorsOrigins().includes(origin)) return callback(null, true);
-    return callback(null, false);
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
   },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Pilot-Access-Code'],
-}));
+};
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (req.path.startsWith('/api')) {
+    console.log('API request origin:', req.header('origin') || '(no origin)', req.method, req.path);
+  }
+  next();
+});
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '2mb' }));
 
 type RateLimitBucket = { count: number; resetAt: number };
@@ -370,5 +381,8 @@ export { app };
 
 if (require.main === module) {
   const port = process.env.PORT || 3001;
-  app.listen(port, () => console.log(`Server running on port ${port}`));
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+    console.log('Allowed CORS origins:', allowedOrigins.join(', ') || '(none configured)');
+  });
 }
