@@ -5,6 +5,8 @@ const DEFAULT_MODEL = 'gpt-4.1-mini';
 const OPENAI_TIMEOUT_MS = 60000;
 
 type MappingRecord = Record<string, unknown>;
+const AMBIGUOUS_AMOUNT_HINT = 'Zahl nicht eindeutig lesbar – bitte prüfen.';
+const AMBIGUOUS_AMOUNT_FINDING = 'Einzelne Beträge konnten wegen zusammengeklebter Word-Extraktion nicht eindeutig gelesen werden.';
 
 function extractOutputText(response: unknown): string {
   const data = response as {
@@ -61,12 +63,25 @@ function compactFilesForPrompt(files: NormalizedFileContent[]): unknown[] {
   }));
 }
 
+function hasAmbiguousGermanNumber(value: unknown): boolean {
+  if (typeof value === 'number') return false;
+  const raw = String(value ?? '').trim();
+  if (!raw) return false;
+  const numericPart = raw.replace(/[^\d,.-]/g, '');
+  if (!/\d/.test(numericPart)) return false;
+  if ((numericPart.match(/,/g) || []).length > 1) return true;
+  const decimalMatch = numericPart.match(/,(\d+)/);
+  if (decimalMatch && decimalMatch[1].length > 2) return true;
+  return /\d[\d.]*,\d{2}\d[\d.]*,\d{1,2}/.test(numericPart);
+}
+
 function parseGermanNumber(value: unknown): { value: number | null; invalid: boolean } {
   if (typeof value === 'number' && Number.isFinite(value)) return { value, invalid: false };
   const raw = String(value ?? '').trim();
   if (!raw) return { value: null, invalid: false };
   const numericPart = raw.replace(/[^\d,.-]/g, '');
   if (!/\d/.test(numericPart)) return { value: null, invalid: false };
+  if (hasAmbiguousGermanNumber(raw)) return { value: null, invalid: true };
   if ((numericPart.match(/,/g) || []).length > 1) return { value: null, invalid: true };
   const normalized = numericPart.includes(',')
     ? numericPart.replace(/\./g, '').replace(',', '.')
@@ -117,17 +132,31 @@ function buildOriginalValue(rawValue: unknown, unit: 'TEUR' | 'EUR' | 'UNKLAR', 
   return unit === 'UNKLAR' ? String(rawValue ?? '') : `${unit} ${String(rawValue ?? '')}`;
 }
 
+function buildAmbiguousOriginalValue(rawValue: unknown, context: string): string {
+  const raw = String(rawValue ?? '').trim();
+  if (raw) return raw;
+  const match = context.match(/\b(?:TEUR|Tâ‚¬|T\s*â‚¬|EUR|â‚¬)?\s*[-+]?\d[\d.]*(?:,\d+){1,2}\b/i);
+  return match ? match[0].replace(/\s+/g, ' ').trim() : '';
+}
+
 export function normalizeAmountForAnalysis(rawValue: unknown, context: string): {
   original_wert?: string;
   erkannter_wert_eur?: number;
   einheit: 'TEUR' | 'EUR' | 'UNKLAR';
   confidencePenalty: boolean;
   invalid: boolean;
+  hinweis?: string;
 } {
   const parsed = parseGermanNumber(rawValue);
   const unit = detectUnit(`${String(rawValue ?? '')}\n${context}`);
   if (parsed.value === null) {
-    return { einheit: unit, confidencePenalty: unit === 'UNKLAR', invalid: parsed.invalid };
+    return {
+      original_wert: parsed.invalid ? buildAmbiguousOriginalValue(rawValue, context) : undefined,
+      einheit: unit,
+      confidencePenalty: parsed.invalid || unit === 'UNKLAR',
+      invalid: parsed.invalid,
+      hinweis: parsed.invalid ? AMBIGUOUS_AMOUNT_HINT : undefined,
+    };
   }
   const multiplier = unit === 'TEUR' ? 1000 : 1;
   return {
@@ -151,6 +180,18 @@ function addFindingOnce(result: LuminaFileAnalysisResult, description: string, r
   });
 }
 
+function addAmbiguousAmountFindingOnce(result: LuminaFileAnalysisResult): void {
+  const existing = result.auffaelligkeiten.some(finding => finding.beschreibung === AMBIGUOUS_AMOUNT_FINDING);
+  if (existing) return;
+  result.auffaelligkeiten.push({
+    prioritaet: 'hoch',
+    bereich: 'Zahlenextraktion',
+    beschreibung: AMBIGUOUS_AMOUNT_FINDING,
+    auswirkung: 'Einzelne Beträge werden nicht als sicher erkannte Werte übernommen.',
+    empfehlung: 'Bitte Bilanz/GuV oder Anhang als strukturierte Excel-Datei nachreichen oder Word-Zahlen manuell prüfen.',
+  });
+}
+
 function normalizeMappingAmounts(result: LuminaFileAnalysisResult, files: NormalizedFileContent[]): LuminaFileAnalysisResult {
   result.mapping_vorschlag = result.mapping_vorschlag.map(item => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
@@ -158,7 +199,14 @@ function normalizeMappingAmounts(result: LuminaFileAnalysisResult, files: Normal
     const context = findContextForMapping(mapping, files);
     const normalized = normalizeAmountForAnalysis(mapping['erkannter_wert'], context);
     if (normalized.invalid) {
-      addFindingOnce(result, 'Fehlerhaftes Zahlenformat erkannt – bitte prüfen.', 'Bitte den Betrag in der Quelldatei kontrollieren.');
+      mapping['original_wert'] = normalized.original_wert || String(mapping['erkannter_wert'] ?? '');
+      delete mapping['erkannter_wert_eur'];
+      mapping['einheit'] = normalized.einheit;
+      mapping['hinweis'] = normalized.hinweis ?? AMBIGUOUS_AMOUNT_HINT;
+      const currentConfidence = typeof mapping['confidence'] === 'number' ? mapping['confidence'] : 0.7;
+      mapping['confidence'] = Math.min(currentConfidence, 0.6);
+      addAmbiguousAmountFindingOnce(result);
+      return mapping;
     }
     if (normalized.erkannter_wert_eur !== undefined) {
       mapping['original_wert'] = normalized.original_wert;

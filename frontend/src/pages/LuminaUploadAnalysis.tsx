@@ -171,6 +171,11 @@ function formatCurrency(value: unknown): string {
   return stringValue;
 }
 
+function mappingAmountText(mapping: Record<string, unknown>): string {
+  if (mapping.hinweis) return 'nicht eindeutig';
+  return formatCurrency(mapping.erkannter_wert_eur);
+}
+
 function DetailSection({ title, children, initiallyOpen = false }: { title: string; children: ReactNode; initiallyOpen?: boolean }) {
   return (
     <details style={S.details} open={initiallyOpen}>
@@ -410,18 +415,19 @@ export default function LuminaUploadAnalysis() {
               <div style={S.emptyHint}>Noch keine Mapping-Vorschläge vorhanden.</div>
             ) : (
               <DataTable
-                columns={['Quelle', 'Originalwert', 'Einheit', 'Wert in EUR', 'Vorjahr', 'HGB-Position', 'Begründung', 'Sicherheit']}
+                columns={['Quelle', 'Originalwert', 'Einheit', 'Wert in EUR', 'Vorjahr', 'HGB-Position', 'Begründung', 'Sicherheit', 'Hinweis']}
                 rows={result.analysis.mapping_vorschlag.map(item => {
                   const mapping = asRecord(item);
                   return [
                     text(mapping.quelle_bezeichnung, '-'),
                     text(mapping.original_wert, '-'),
                     text(mapping.einheit, '-'),
-                    formatCurrency(mapping.erkannter_wert_eur),
+                    mappingAmountText(mapping),
                     formatCurrency(mapping.vorjahr),
                     text(mapping.vorgeschlagene_hgb_position, '-'),
                     text(mapping.begruendung, '-'),
                     formatPercent(mapping.confidence),
+                    text(mapping.hinweis, '-'),
                   ];
                 })}
               />

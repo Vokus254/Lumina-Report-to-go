@@ -42,6 +42,30 @@ describe('normalizeAmountForAnalysis', () => {
     expect(result.erkannter_wert_eur).toBeUndefined();
   });
 
+  it('markiert zusammengeklebte EUR-Betraege mit zwei Dezimaltrennern', () => {
+    const result = normalizeAmountForAnalysis('EUR 93.774,7519.664,87', 'Forderungen EUR 93.774,7519.664,87');
+
+    expect(result.invalid).toBe(true);
+    expect(result.erkannter_wert_eur).toBeUndefined();
+    expect(result.original_wert).toBe('EUR 93.774,7519.664,87');
+    expect(result.hinweis).toBe('Zahl nicht eindeutig lesbar – bitte prüfen.');
+  });
+
+  it('markiert zusammengeklebte Millionenbetraege', () => {
+    const result = normalizeAmountForAnalysis('EUR 2.279.146,553.051.992,66', 'Betrag EUR 2.279.146,553.051.992,66');
+
+    expect(result.invalid).toBe(true);
+    expect(result.erkannter_wert_eur).toBeUndefined();
+  });
+
+  it('markiert Zahlen mit zu langer Nachkommensequenz', () => {
+    const result = normalizeAmountForAnalysis('EUR 775,52238', 'Betrag EUR 775,52238');
+
+    expect(result.invalid).toBe(true);
+    expect(result.erkannter_wert_eur).toBeUndefined();
+    expect(result.confidencePenalty).toBe(true);
+  });
+
   it('reduziert Sicherheit bei unklarer Einheit', () => {
     const result = normalizeAmountForAnalysis('362', 'Sonstige Rückstellungen 362');
 
