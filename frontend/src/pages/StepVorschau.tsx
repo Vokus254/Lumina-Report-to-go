@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import type { JahresabschlussData, ReportTextEntry, StepProps } from '../types';
 import { importExcelClient } from '../utils/importExcelClient';
+import { apiUrl } from '../utils/api';
 
 type SectionTextResult = {
   text: string;
@@ -1117,7 +1118,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
   const [testRunRunning, setTestRunRunning] = useState(false);
   const [testRunLog, setTestRunLog] = useState('');
   const viteEnv = (import.meta as unknown as { env?: Record<string, string | boolean | undefined> }).env;
-  const showTestButton = viteEnv?.DEV === true || viteEnv?.VITE_SHOW_TEST_BUTTON === 'true';
+  const showTestButton = viteEnv?.VITE_SHOW_DEMO_TEST_BUTTON !== 'false' && viteEnv?.VITE_SHOW_TEST_BUTTON !== 'false';
 
   const ebit = guv.betriebsergebnis ||
     ((guv.umsatzerloese || 0) + (guv.bestandsveraenderung || 0) + (guv.eigenleistungen || 0) + (guv.sonstige_ertraege || 0)
@@ -1187,7 +1188,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
     setSectionResults(prev => ({ ...prev, [sectionId]: undefined }));
 
     try {
-      const resp = await fetch('/api/ai/section-text', {
+      const resp = await fetch(apiUrl('/api/ai/section-text'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1303,7 +1304,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
   });
 
   const downloadGeneratedZip = async (sourceData: JahresabschlussData) => {
-    const resp = await fetch('/api/generate', {
+    const resp = await fetch(apiUrl('/api/generate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sourceData),
@@ -1334,6 +1335,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
       const excelBlob = await excelResp.blob();
       const importedData = await importExcelClient(new File([excelBlob], 'Jahresabschluss_Eingabevorlage_Beispiel1.xlsx'));
 
+      setTestRunLog('Excel geladen');
       applyImportedDataToState(importedData);
       let workingData = mergeImportedData(importedData);
       const reportTexts: Record<string, ReportTextEntry> = {};
@@ -1349,7 +1351,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
           reportTexts[sectionId] = entry;
           onTransferReportText?.(entry);
           workingData = { ...workingData, reportTexts };
-          setTestRunLog(`Testlauf läuft: Abschnitt ${index + 1}/${EXAMPLE_TEST_WORKBENCH_SECTION_IDS.length} wurde übernommen (${request.title}).`);
+          setTestRunLog(`Excel geladen\nKI-Texte erzeugt: ${index + 1}/${EXAMPLE_TEST_WORKBENCH_SECTION_IDS.length}\nBericht übernommen: ${request.title}`);
         } catch (err) {
           errors.push(`${request.title}: ${shortErrorMessage((err as Error).message)}`);
         }
@@ -1359,7 +1361,9 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
         ? `Testlauf: ${errors.length} Abschnitt(e) mit Fehler. Word-Dateien werden mit verfügbaren Texten generiert...`
         : 'Testlauf läuft: Word-Dateien werden generiert...');
       await downloadGeneratedZip({ ...workingData, reportTexts });
-      setTestRunLog(errors.length > 0 ? `Download gestartet. Fehler: ${errors.join(' | ')}` : 'Download gestartet.');
+      setTestRunLog(errors.length > 0
+        ? `Excel geladen\nKI-Texte erzeugt\nBericht übernommen\nWord-Berichte generiert\nFehler: ${errors.join(' | ')}`
+        : 'Excel geladen\nKI-Texte erzeugt\nBericht übernommen\nWord-Berichte generiert');
     } catch (err) {
       setTestRunLog(`Testlauf Fehler: ${shortErrorMessage((err as Error).message)}`);
     } finally {
@@ -1610,7 +1614,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
               cursor: testRunRunning ? 'not-allowed' : 'pointer',
             }}
           >
-            {testRunRunning ? 'Testlauf läuft...' : 'Beispiel komplett testen'}
+            {testRunRunning ? 'Demo-Testlauf läuft...' : 'Demo-Testlauf starten'}
           </button>
           {testRunLog && <div style={styles.testRunLog}>{testRunLog}</div>}
         </div>
@@ -1719,7 +1723,7 @@ const styles: Record<string, React.CSSProperties> = {
   reportTextStatusMissing: { color: '#991B1B', background: '#FEE2E2' },
   testRunBox: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 12px', marginBottom: 14 },
   testRunButton: { background: '#92400E', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' },
-  testRunLog: { fontSize: 12, color: '#78350F', lineHeight: 1.4 },
+  testRunLog: { fontSize: 12, color: '#78350F', lineHeight: 1.4, whiteSpace: 'pre-wrap' },
   sectionAssistant: { marginTop: 14, background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '14px 18px' },
   sectionAssistantTitle: { fontSize: 12, fontWeight: 700, color: '#1F3864', textTransform: 'uppercase', marginBottom: 10 },
   assistantGroupTitle: { fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '12px 0 8px' },

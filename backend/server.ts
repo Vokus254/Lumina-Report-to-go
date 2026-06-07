@@ -14,7 +14,13 @@ import { generateSectionText, generateSectionTextsForAnhang } from './services/o
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const app    = express();
 
-app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://lumina-report-to-go.vercel.app',
+  ],
+}));
 app.use(express.json({ limit: '2mb' }));
 
 // ── Health ─────────────────────────────────────────────────────────

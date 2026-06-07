@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { JahresabschlussData, ReportTextEntry } from '../types';
 import { DEFAULT_DATA } from '../utils/defaultData';
 import { importExcelClient } from '../utils/importExcelClient';
+import { apiUrl } from '../utils/api';
 
 export type GenerateStatus = 'idle' | 'generating' | 'done' | 'error';
 export type ImportStatus   = 'idle' | 'loading' | 'done' | 'error';
@@ -146,7 +147,7 @@ export function useJahresabschluss() {
     setLoadingMsg(messages[0]);
     const timer = setInterval(() => { mi = (mi + 1) % messages.length; setLoadingMsg(messages[mi]); }, 4000);
     try {
-      const resp = await fetch('/api/generate', {
+      const resp = await fetch(apiUrl('/api/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
