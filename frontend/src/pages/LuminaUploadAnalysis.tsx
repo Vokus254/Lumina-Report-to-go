@@ -80,10 +80,13 @@ function sourceText(value: unknown): string {
   return text(asRecord(value).quelle, '-');
 }
 
-function confidenceText(value: unknown): string {
-  const confidence = asRecord(value).confidence;
+function formatPercent(confidence: unknown): string {
   if (typeof confidence !== 'number' || !Number.isFinite(confidence)) return '-';
   return `${Math.round(confidence * 100)} %`;
+}
+
+function confidenceText(value: unknown): string {
+  return formatPercent(asRecord(value).confidence);
 }
 
 function statusColor(value: string | undefined): CSSProperties {
@@ -91,6 +94,10 @@ function statusColor(value: string | undefined): CSSProperties {
   if (normalized.includes('ja') || normalized.includes('hoch') || normalized.includes('plausibel')) return { background: '#eaf7ef', color: '#16794c' };
   if (normalized.includes('nein') || normalized.includes('niedrig') || normalized.includes('kritisch') || normalized.includes('zwingend')) return { background: '#fff0ee', color: '#b42318' };
   return { background: '#fff4df', color: '#a15c07' };
+}
+
+function formatBadge(value: string | undefined): CSSProperties {
+  return statusColor(value);
 }
 
 function priorityStyle(value: string): CSSProperties {
@@ -129,7 +136,16 @@ function statusLabel(value: unknown): string {
   return String(value);
 }
 
-function formatAmount(value: unknown): string {
+function renderBooleanStatus(value: unknown): ReactNode {
+  return (
+    <>
+      <span>{statusSymbol(value)}</span>
+      <strong>{statusLabel(value)}</strong>
+    </>
+  );
+}
+
+function formatCurrency(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-';
   if (typeof value === 'number' && Number.isFinite(value)) {
     return `${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} EUR`;
@@ -179,6 +195,10 @@ function PriorityPill({ value }: { value: string }) {
   return <span style={{ ...S.priority, ...priorityStyle(value) }}>{value || '-'}</span>;
 }
 
+function renderPriorityBadge(priority: unknown): ReactNode {
+  return <PriorityPill value={text(priority, 'mittel')} />;
+}
+
 export default function LuminaUploadAnalysis() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -190,6 +210,8 @@ export default function LuminaUploadAnalysis() {
     [result],
   );
   const nextStep = result?.analysis.naechste_schritte?.[0];
+  const gesellschaft = asRecord(result?.analysis.gesellschaft);
+  const organe = asArray(gesellschaft.organe);
 
   const runAnalysis = async () => {
     if (!files.length) {
@@ -276,16 +298,32 @@ export default function LuminaUploadAnalysis() {
             </div>
           </div>
 
+          <DetailSection title="Gesamtbeurteilung" initiallyOpen>
+            <div style={S.summaryTextBlock}>
+              <p style={S.readableText}>{result.analysis.analyse_status.gesamtbeurteilung || 'Lumina hat eine fachliche Erstdiagnose erstellt.'}</p>
+              <p style={S.readableText}>{result.analysis.analyse_status.kurzbegruendung || 'Die hochgeladenen Unterlagen wurden fachlich eingeordnet.'}</p>
+              <div style={S.badgeRow}>
+                <span style={{ ...S.badge, ...formatBadge(result.analysis.analyse_status.abschlussfaehigkeit) }}>
+                  Abschlussfähigkeit: {result.analysis.analyse_status.abschlussfaehigkeit || 'unklar'}
+                </span>
+                <span style={{ ...S.badge, ...formatBadge(result.analysis.analyse_status.datenqualitaet) }}>
+                  Datenqualität: {result.analysis.analyse_status.datenqualitaet || 'unklar'}
+                </span>
+              </div>
+            </div>
+          </DetailSection>
+
           <DetailSection title="Erkannte Dateien" initiallyOpen>
             <DataTable
-              columns={['Datei', 'Erkannter Inhalt', 'Relevanz', 'Datenqualität', 'Bemerkung']}
+              columns={['Datei', 'Dateityp', 'Erkannter Inhalt', 'Relevanz', 'Datenqualität', 'Bemerkung']}
               rows={result.analysis.dateien.map(item => {
                 const file = asRecord(item);
                 return [
                   text(file.dateiname, '-'),
+                  text(file.erkannter_dateityp ?? file.dateityp ?? file.detectedContentType, '-'),
                   text(file.erkannter_inhalt, '-'),
-                  <span style={{ ...S.priority, ...statusColor(text(file.relevanz, '')) }}>{text(file.relevanz, '-')}</span>,
-                  <span style={{ ...S.priority, ...statusColor(text(file.datenqualitaet, '')) }}>{text(file.datenqualitaet, '-')}</span>,
+                  <span style={{ ...S.priority, ...formatBadge(text(file.relevanz, '')) }}>{text(file.relevanz, '-')}</span>,
+                  <span style={{ ...S.priority, ...formatBadge(text(file.datenqualitaet, '')) }}>{text(file.datenqualitaet, '-')}</span>,
                   text(file.bemerkungen, '-'),
                 ];
               })}
@@ -296,17 +334,31 @@ export default function LuminaUploadAnalysis() {
             <DataTable
               columns={['Feld', 'Erkannter Wert', 'Quelle', 'Sicherheit']}
               rows={[
-                ['Name', valueText(asRecord(result.analysis.gesellschaft).name), sourceText(asRecord(result.analysis.gesellschaft).name), confidenceText(asRecord(result.analysis.gesellschaft).name)],
-                ['Rechtsform', valueText(asRecord(result.analysis.gesellschaft).rechtsform), sourceText(asRecord(result.analysis.gesellschaft).rechtsform), confidenceText(asRecord(result.analysis.gesellschaft).rechtsform)],
-                ['Sitz', valueText(asRecord(result.analysis.gesellschaft).sitz), sourceText(asRecord(result.analysis.gesellschaft).sitz), confidenceText(asRecord(result.analysis.gesellschaft).sitz)],
-                ['Geschäftsjahr', valueText(asRecord(result.analysis.gesellschaft).geschaeftsjahr), sourceText(asRecord(result.analysis.gesellschaft).geschaeftsjahr), confidenceText(asRecord(result.analysis.gesellschaft).geschaeftsjahr)],
-                ['Bilanzstichtag', valueText(asRecord(result.analysis.gesellschaft).bilanzstichtag), sourceText(asRecord(result.analysis.gesellschaft).bilanzstichtag), confidenceText(asRecord(result.analysis.gesellschaft).bilanzstichtag)],
-                ...asArray(asRecord(result.analysis.gesellschaft).organe).map((organ, index) => {
-                  const record = asRecord(organ);
-                  return [`Organ ${index + 1}`, text(record.name ?? record.wert ?? organ), text(record.quelle, '-'), confidenceText(record)];
-                }),
+                ['Name', valueText(gesellschaft.name), sourceText(gesellschaft.name), confidenceText(gesellschaft.name)],
+                ['Rechtsform', valueText(gesellschaft.rechtsform), sourceText(gesellschaft.rechtsform), confidenceText(gesellschaft.rechtsform)],
+                ['Sitz', valueText(gesellschaft.sitz), sourceText(gesellschaft.sitz), confidenceText(gesellschaft.sitz)],
+                ['Geschäftsjahr', valueText(gesellschaft.geschaeftsjahr), sourceText(gesellschaft.geschaeftsjahr), confidenceText(gesellschaft.geschaeftsjahr)],
+                ['Bilanzstichtag', valueText(gesellschaft.bilanzstichtag), sourceText(gesellschaft.bilanzstichtag), confidenceText(gesellschaft.bilanzstichtag)],
               ]}
             />
+            {organe.length > 0 && (
+              <div style={S.subBlock}>
+                <h3 style={S.groupTitle}>Organe</h3>
+                <DataTable
+                  columns={['Name', 'Funktion', 'Ort', 'Quelle', 'Sicherheit']}
+                  rows={organe.map(organ => {
+                    const record = asRecord(organ);
+                    return [
+                      text(record.name ?? record.wert ?? organ, '-'),
+                      text(record.funktion ?? record.rolle, '-'),
+                      text(record.ort, '-'),
+                      text(record.quelle, '-'),
+                      confidenceText(record),
+                    ];
+                  })}
+                />
+              </div>
+            )}
           </DetailSection>
 
           <DetailSection title="Erkannte Abschlussbestandteile">
@@ -325,9 +377,8 @@ export default function LuminaUploadAnalysis() {
                 const value = result.analysis.erkannte_abschlussbestandteile[key];
                 return (
                   <div key={key} style={S.checkItem}>
-                    <span>{statusSymbol(value)}</span>
+                    {renderBooleanStatus(value)}
                     <strong>{label}</strong>
-                    <span style={S.muted}>{statusLabel(value)}</span>
                   </div>
                 );
               })}
@@ -342,19 +393,25 @@ export default function LuminaUploadAnalysis() {
               {asArray(asRecord(result.analysis.guv).positionen).length === 0 && (
                 <div style={S.emptyHint}>Es wurden noch keine vollständigen GuV-Daten erkannt.</div>
               )}
+              {asRecord(result.analysis.guv).jahresergebnis !== undefined && (
+                <div style={S.emptyHint}>Erkanntes Jahresergebnis: {formatCurrency(asRecord(result.analysis.guv).jahresergebnis)}</div>
+              )}
             </div>
             {result.analysis.mapping_vorschlag.length > 0 && (
               <DataTable
-                columns={['Quelle / Bezeichnung', 'Erkannter Wert', 'Vorjahr', 'Vorgeschlagene HGB-Position', 'Begründung', 'Sicherheit']}
+                columns={['Quelle / Bezeichnung', 'Erkannter Wert', 'Originalwert', 'Einheit', 'Wert in EUR', 'Vorjahr', 'HGB-Position', 'Begründung', 'Sicherheit']}
                 rows={result.analysis.mapping_vorschlag.map(item => {
                   const mapping = asRecord(item);
                   return [
                     text(mapping.quelle_bezeichnung, '-'),
-                    formatAmount(mapping.erkannter_wert_eur ?? mapping.erkannter_wert),
-                    formatAmount(mapping.vorjahr),
+                    formatCurrency(mapping.erkannter_wert_eur ?? mapping.erkannter_wert),
+                    text(mapping.original_wert, '-'),
+                    text(mapping.einheit, '-'),
+                    formatCurrency(mapping.erkannter_wert_eur),
+                    formatCurrency(mapping.vorjahr),
                     text(mapping.vorgeschlagene_hgb_position, '-'),
                     text(mapping.begruendung, '-'),
-                    confidenceText(mapping),
+                    formatPercent(mapping.confidence),
                   ];
                 })}
               />
@@ -369,7 +426,7 @@ export default function LuminaUploadAnalysis() {
                   return (
                     <div key={index} style={S.task}>
                       <div style={S.taskTop}>
-                        <PriorityPill value={text(finding.prioritaet, 'niedrig')} />
+                        {renderPriorityBadge(finding.prioritaet)}
                         <strong>{text(finding.bereich, 'Allgemein')}</strong>
                       </div>
                       <div style={S.taskTitle}>{text(finding.beschreibung, '-')}</div>
@@ -393,7 +450,7 @@ export default function LuminaUploadAnalysis() {
                     {items.map((item, index) => (
                       <div key={`${group}-${index}`} style={{ ...S.task, ...(group === 'zwingend' ? S.taskCritical : {}) }}>
                         <div style={S.taskTop}>
-                          <PriorityPill value={item.prioritaet} />
+                          {renderPriorityBadge(item.prioritaet)}
                           <strong>{item.bereich || 'Allgemein'}</strong>
                         </div>
                         <div style={S.taskTitle}>{item.fehlende_angabe}</div>
@@ -432,7 +489,7 @@ export default function LuminaUploadAnalysis() {
               rows={result.analysis.fragen_an_nutzer.map(item => {
                 const question = asRecord(item);
                 return [
-                  <PriorityPill value={text(question.prioritaet, 'mittel')} />,
+                  renderPriorityBadge(question.prioritaet),
                   text(question.frage, '-'),
                   text(question.zweck, '-'),
                 ];
@@ -500,5 +557,8 @@ const S: Record<string, CSSProperties> = {
   emptyHint: { padding: '11px 12px', borderRadius: 10, background: '#fbfbfa', color: '#667085', border: '1px solid #e6e7e9', fontSize: 13 },
   noticeStack: { display: 'grid', gap: 8, marginBottom: 12 },
   readableText: { color: '#344054', lineHeight: 1.55 },
+  summaryTextBlock: { display: 'grid', gap: 8 },
+  badgeRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  subBlock: { marginTop: 14, display: 'grid', gap: 8 },
   json: { margin: 0, maxHeight: 360, overflow: 'auto', whiteSpace: 'pre-wrap', background: '#111827', color: '#f9fafb', borderRadius: 10, padding: 12, fontSize: 12, lineHeight: 1.5 },
 };
