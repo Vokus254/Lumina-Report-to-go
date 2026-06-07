@@ -52,6 +52,7 @@ type UploadAnalysisResponse = {
   analysis: LuminaFileAnalysisResult;
   model: string;
   timestamp: string;
+  rawAnalysisResult?: unknown;
 };
 
 function asResponse(value: unknown): UploadAnalysisResponse {
@@ -68,7 +69,19 @@ function asArray(value: unknown): unknown[] {
 
 function text(value: unknown, fallback = 'nicht erkannt'): string {
   if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value === 'object') return fallback;
   return String(value);
+}
+
+function readableText(value: unknown, fallback: string): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      return fallback;
+    }
+    return trimmed || fallback;
+  }
+  return text(value, fallback);
 }
 
 function valueText(value: unknown, fallback = 'nicht erkannt'): string {
@@ -156,10 +169,6 @@ function formatCurrency(value: unknown): string {
     return `${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numeric)} EUR`;
   }
   return stringValue;
-}
-
-function JsonBlock({ value }: { value: unknown }) {
-  return <pre style={S.json}>{JSON.stringify(value, null, 2)}</pre>;
 }
 
 function DetailSection({ title, children, initiallyOpen = false }: { title: string; children: ReactNode; initiallyOpen?: boolean }) {
@@ -276,10 +285,10 @@ export default function LuminaUploadAnalysis() {
             <div>
               <div style={S.kicker}>Management Summary</div>
               <h2 style={S.resultTitle}>{trafficLabel(result.analysis.analyse_status.abschlussfaehigkeit)}</h2>
-              <p style={S.leadSmall}>{result.analysis.analyse_status.kurzbegruendung || 'Lumina hat eine erste Abschlussdiagnose erstellt.'}</p>
+              <p style={S.leadSmall}>{readableText(result.analysis.analyse_status.kurzbegruendung, 'Lumina hat eine erste Abschlussdiagnose erstellt.')}</p>
             </div>
             <span style={{ ...S.badge, ...statusColor(result.analysis.analyse_status.abschlussfaehigkeit) }}>
-              {result.analysis.analyse_status.gesamtbeurteilung || 'Diagnose erstellt'}
+              {readableText(result.analysis.analyse_status.gesamtbeurteilung, 'Diagnose erstellt')}
             </span>
           </div>
 
@@ -300,8 +309,8 @@ export default function LuminaUploadAnalysis() {
 
           <DetailSection title="Gesamtbeurteilung" initiallyOpen>
             <div style={S.summaryTextBlock}>
-              <p style={S.readableText}>{result.analysis.analyse_status.gesamtbeurteilung || 'Lumina hat eine fachliche Erstdiagnose erstellt.'}</p>
-              <p style={S.readableText}>{result.analysis.analyse_status.kurzbegruendung || 'Die hochgeladenen Unterlagen wurden fachlich eingeordnet.'}</p>
+              <p style={S.readableText}>{readableText(result.analysis.analyse_status.gesamtbeurteilung, 'Lumina hat eine fachliche Erstdiagnose erstellt.')}</p>
+              <p style={S.readableText}>{readableText(result.analysis.analyse_status.kurzbegruendung, 'Die hochgeladenen Unterlagen wurden fachlich eingeordnet.')}</p>
               <div style={S.badgeRow}>
                 <span style={{ ...S.badge, ...formatBadge(result.analysis.analyse_status.abschlussfaehigkeit) }}>
                   Abschlussfähigkeit: {result.analysis.analyse_status.abschlussfaehigkeit || 'unklar'}
@@ -397,14 +406,15 @@ export default function LuminaUploadAnalysis() {
                 <div style={S.emptyHint}>Erkanntes Jahresergebnis: {formatCurrency(asRecord(result.analysis.guv).jahresergebnis)}</div>
               )}
             </div>
-            {result.analysis.mapping_vorschlag.length > 0 && (
+            {result.analysis.mapping_vorschlag.length === 0 ? (
+              <div style={S.emptyHint}>Noch keine Mapping-Vorschläge vorhanden.</div>
+            ) : (
               <DataTable
-                columns={['Quelle / Bezeichnung', 'Erkannter Wert', 'Originalwert', 'Einheit', 'Wert in EUR', 'Vorjahr', 'HGB-Position', 'Begründung', 'Sicherheit']}
+                columns={['Quelle', 'Originalwert', 'Einheit', 'Wert in EUR', 'Vorjahr', 'HGB-Position', 'Begründung', 'Sicherheit']}
                 rows={result.analysis.mapping_vorschlag.map(item => {
                   const mapping = asRecord(item);
                   return [
                     text(mapping.quelle_bezeichnung, '-'),
-                    formatCurrency(mapping.erkannter_wert_eur ?? mapping.erkannter_wert),
                     text(mapping.original_wert, '-'),
                     text(mapping.einheit, '-'),
                     formatCurrency(mapping.erkannter_wert_eur),
@@ -419,7 +429,7 @@ export default function LuminaUploadAnalysis() {
           </DetailSection>
 
           <DetailSection title="Auffälligkeiten">
-            {result.analysis.auffaelligkeiten.length === 0 ? <div style={S.emptyHint}>Keine Auffälligkeiten gemeldet.</div> : (
+            {result.analysis.auffaelligkeiten.length === 0 ? <div style={S.emptyHint}>Keine Auffälligkeiten erkannt.</div> : (
               <div style={S.taskList}>
                 {result.analysis.auffaelligkeiten.map((item, index) => {
                   const finding = asRecord(item);
@@ -471,7 +481,7 @@ export default function LuminaUploadAnalysis() {
           </DetailSection>
 
           <DetailSection title="Nächste Schritte" initiallyOpen>
-            {result.analysis.naechste_schritte.length === 0 ? <div style={S.emptyHint}>Keine nächsten Schritte gemeldet.</div> : (
+            {result.analysis.naechste_schritte.length === 0 ? <div style={S.emptyHint}>Keine nächsten Schritte vorhanden.</div> : (
               <ol style={S.pathList}>
                 {result.analysis.naechste_schritte.map((step, index) => (
                   <li key={index} style={S.pathItem}>
@@ -484,26 +494,29 @@ export default function LuminaUploadAnalysis() {
           </DetailSection>
 
           <DetailSection title="Rückfragen an den Nutzer">
-            <DataTable
-              columns={['Priorität', 'Frage', 'Zweck']}
-              rows={result.analysis.fragen_an_nutzer.map(item => {
-                const question = asRecord(item);
-                return [
-                  renderPriorityBadge(question.prioritaet),
-                  text(question.frage, '-'),
-                  text(question.zweck, '-'),
-                ];
-              })}
-            />
+            {result.analysis.fragen_an_nutzer.length === 0 ? <div style={S.emptyHint}>Keine Rückfragen vorhanden.</div> : (
+              <DataTable
+                columns={['Priorität', 'Frage', 'Zweck']}
+                rows={result.analysis.fragen_an_nutzer.map(item => {
+                  const question = asRecord(item);
+                  return [
+                    renderPriorityBadge(question.prioritaet),
+                    text(question.frage, '-'),
+                    text(question.zweck, '-'),
+                  ];
+                })}
+              />
+            )}
           </DetailSection>
 
           <DetailSection title="Entwicklerdetails anzeigen">
-            <JsonBlock value={{
+            <pre style={S.json}>{JSON.stringify({
               model: result.model,
               timestamp: result.timestamp,
               extractionWarnings: result.extractionWarnings,
               normalizedFiles: result.normalizedFiles,
-            }} />
+              rawAnalysisResult: result.rawAnalysisResult ?? result.analysis,
+            }, null, 2)}</pre>
           </DetailSection>
         </div>
       )}
