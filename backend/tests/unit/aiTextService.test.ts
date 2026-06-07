@@ -79,10 +79,13 @@ describe('aiTextService OpenAI mode', () => {
     expect(texts.lagebericht.geschaeftsmodell).toContain('Mock-Text');
   });
 
-  it('meldet fehlenden OPENAI_API_KEY kontrolliert', async () => {
+  it('liefert bei fehlendem OPENAI_API_KEY deterministische Fallback-Texte', async () => {
     const { generateTexts } = await import('../../services/aiTextService.ts');
 
-    await expect(generateTexts(minimalData())).rejects.toThrow('OPENAI_API_KEY fehlt auf dem Server.');
+    const texts = await generateTexts(minimalData());
+
+    expect(AiTextsSchema.safeParse(texts).success).toBe(true);
+    expect(texts.lagebericht.geschaeftsmodell).toContain('Fallback');
   });
 
   it('nutzt OpenAI Responses API und validiert das Schema', async () => {

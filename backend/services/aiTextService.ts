@@ -2,6 +2,9 @@ import { AiTextsSchema } from '../../packages/schema/src';
 import type { AiTexts, JahresabschlussData } from '../../packages/schema/src';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
+const OPENAI_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+const OPENAI_RETRY_DELAYS_MS = [1000, 3000, 6000];
+const OPENAI_TIMEOUT_MS = 45000;
 
 const MOCK_AI_TEXTS = AiTextsSchema.parse({
   lagebericht: {
@@ -112,6 +115,108 @@ function extractOpenAiOutputText(response: unknown): string {
   throw new Error('OpenAI response did not contain JSON text.');
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableOpenAiError(error: unknown): boolean {
+  const err = error as { status?: number; name?: string; message?: string };
+  const msg = String(err?.message ?? '').toLowerCase();
+  return (
+    err?.name === 'AbortError' ||
+    msg.includes('timeout') ||
+    msg.includes('connection timeout') ||
+    msg.includes('disconnect/reset') ||
+    (typeof err?.status === 'number' && OPENAI_RETRY_STATUSES.has(err.status))
+  );
+}
+
+async function fetchOpenAiWithRetry(requestBody: unknown, apiKey: string): Promise<unknown> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        console.error(`OpenAI text generation error response (attempt ${attempt}/3):`, errorBody);
+        const details = errorBody ? ` ${errorBody.slice(0, 800)}` : '';
+        const error = new Error(`OpenAI request failed with status ${response.status}.${details}`) as Error & { status?: number };
+        error.status = response.status;
+        throw error;
+      }
+
+      return response.json();
+    } catch (err) {
+      lastError = err;
+      console.error(`OpenAI text generation failed (attempt ${attempt}/3):`, err);
+      if (attempt >= 3 || !isRetryableOpenAiError(err)) break;
+      await sleep(OPENAI_RETRY_DELAYS_MS[attempt - 1] ?? 6000);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function generateFallbackTexts(data: JahresabschlussData, reason: unknown): AiTexts {
+  const company = data.stammdaten.firmenname || 'die Gesellschaft';
+  const year = data.stammdaten.geschaeftsjahr || 'das Geschaeftsjahr';
+  const umsatz = Math.round(data.guv.umsatzerloese || 0).toLocaleString('de-DE');
+  const jahresueber = Math.round(data.guv.jahresueberschuss || 0).toLocaleString('de-DE');
+  const reasonText = reason instanceof Error ? reason.message : String(reason);
+  console.error('Fallback AI texts used:', reasonText);
+
+  return AiTextsSchema.parse({
+    lagebericht: {
+      geschaeftsmodell: `${company} wird auf Grundlage der vorliegenden Eingabedaten beschrieben. Der Text ist als Fallback erstellt und im Rahmen der Abschlussarbeiten fachlich zu pruefen.`,
+      strategie: 'Die strategische Ausrichtung ist anhand der Unternehmensangaben zu ergaenzen und fachlich zu plausibilisieren.',
+      gesamtwirtschaft: 'Das gesamtwirtschaftliche Umfeld ist fuer den Bericht anhand aktueller Quellen und Unternehmensangaben zu ergaenzen.',
+      geschaeftsverlauf: `Der Geschaeftsverlauf ${year} ist anhand der Finanzdaten und wesentlicher operativer Ereignisse zu erlaeutern.`,
+      ertragslage: `Die Umsatzerloese beliefen sich auf ${umsatz} TEUR. Der Jahresueberschuss betrug ${jahresueber} TEUR; die Entwicklung ist fachlich zu analysieren.`,
+      finanzlage: 'Die Finanzlage ist anhand der Liquiditaet, Finanzierung und wesentlichen Zahlungsstroeme weiter zu erlaeutern.',
+      vermoegenslage: 'Die Vermoegenslage ist anhand der Bilanzstruktur und wesentlichen Veraenderungen weiter zu analysieren.',
+      nachtragsbericht: 'Ereignisse nach dem Bilanzstichtag sind zu pruefen und bei Bedarf zu ergaenzen.',
+      risiken: 'Wesentliche Risiken sind anhand der Unternehmensangaben zu identifizieren und zu beschreiben.',
+      chancen: 'Wesentliche Chancen sind anhand der Unternehmensplanung und Marktentwicklung zu ergaenzen.',
+      prognose: 'Die Prognose ist auf Grundlage der Planung und erwarteten Entwicklung fachlich zu ergaenzen.',
+    },
+    anhang: {
+      rechtliche_grundlagen: 'Der Jahresabschluss wurde auf Grundlage der vorliegenden Daten erstellt. Dieser Fallback-Text ist fachlich zu pruefen.',
+      bilanzierungsgrundsaetze_intro: 'Die Bilanzierungs- und Bewertungsgrundsaetze sind anhand der Unternehmensangaben zu ergaenzen und freizugeben.',
+      bewertung_immaterielle: 'Die Bewertung immaterieller Vermoegensgegenstaende ist anhand der angewendeten Bewertungsparameter zu ergaenzen.',
+      bewertung_sachanlagen: 'Die Bewertung der Sachanlagen ist anhand der angewendeten Abschreibungsmethoden und Nutzungsdauern zu ergaenzen.',
+      bewertung_vorraete: 'Die Bewertung der Vorraete ist anhand der angewendeten Bewertungsmethode und moeglicher Abwertungen zu pruefen.',
+      bewertung_forderungen: 'Die Bewertung der Forderungen ist anhand von Restlaufzeiten, Wertberichtigungen und Sicherheiten zu ergaenzen.',
+      bewertung_rueckstellungen: 'Die Bewertung der Rueckstellungen ist anhand der Bewertungsmethoden und wesentlichen Einzelposten zu ergaenzen.',
+      vorraete_kommentar: 'Die Vorratsentwicklung ist anhand der Tabellenwerte und wesentlicher Einzelposten zu analysieren.',
+      forderungen_kommentar: 'Die Forderungsentwicklung ist anhand der Tabellenwerte und wesentlicher Einzelposten zu analysieren.',
+      eigenkapital_kommentar: 'Die Eigenkapitalentwicklung ist anhand der Tabellenwerte und Ergebnisverwendung zu analysieren.',
+      rueckstellungen_kommentar: 'Die Rueckstellungsentwicklung ist anhand der Tabellenwerte und wesentlicher Einzelposten zu analysieren.',
+      verbindlichkeiten_kommentar: 'Die Verbindlichkeitenentwicklung ist anhand der Tabellenwerte und Restlaufzeiten zu analysieren.',
+      umsatz_kommentar: 'Die Umsatzentwicklung ist anhand der Tabellenwerte und wesentlicher Treiber zu analysieren.',
+      personal_kommentar: 'Der Personalaufwand ist anhand der Tabellenwerte und Personalentwicklung zu analysieren.',
+      derivate_kommentar: 'Derivative Finanzinstrumente sind zu pruefen und bei Bedarf zu ergaenzen.',
+      nahestehende_kommentar: 'Geschaeftsvorfaelle mit nahestehenden Personen sind zu pruefen und bei Bedarf zu ergaenzen.',
+      ereignisse_nach_stichtag: 'Ereignisse nach dem Bilanzstichtag sind zu pruefen und bei Bedarf zu ergaenzen.',
+      bestaetigung_pruefungsurteil: '[Der Bestaetigungsvermerk wird nach Abschluss der Pruefung eingefuegt.]',
+    },
+  });
+}
+
 export async function generateTexts(data: JahresabschlussData): Promise<AiTexts> {
   if (process.env['USE_MOCK_AI_TEXTS'] === 'true') {
     return MOCK_AI_TEXTS;
@@ -119,7 +224,7 @@ export async function generateTexts(data: JahresabschlussData): Promise<AiTexts>
 
   const apiKey = process.env['OPENAI_API_KEY'];
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY fehlt auf dem Server.');
+    return generateFallbackTexts(data, new Error('OPENAI_API_KEY fehlt auf dem Server.'));
   }
 
   const { stammdaten, guv, segmente, kennzahlen } = data;
@@ -148,50 +253,36 @@ export async function generateTexts(data: JahresabschlussData): Promise<AiTexts>
     `Abschlusspruefer: ${stammdaten.abschlussprufer || 'KPMG AG'}`,
   ].join('\n');
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: process.env['OPENAI_MODEL'] || DEFAULT_OPENAI_MODEL,
-      input: [
-        {
-          role: 'system',
-          content: [
-            'Du erstellst deutsche, sachliche und prueferorientierte Freitexte fuer HGB-Jahresabschlussdokumente.',
-            'Antworte ausschliesslich als JSON gemaess Schema.',
-            'Keine Markdown-Ausgabe, keine zusaetzlichen Felder.',
-            'Alle Betragsangaben in TEUR.',
-          ].join(' '),
-        },
-        { role: 'user', content: prompt },
-      ],
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'ai_texts',
-          strict: true,
-          schema: aiTextsJsonSchema,
-        },
+  const requestBody = {
+    model: process.env['OPENAI_MODEL'] || DEFAULT_OPENAI_MODEL,
+    input: [
+      {
+        role: 'system',
+        content: [
+          'Du erstellst deutsche, sachliche und prueferorientierte Freitexte fuer HGB-Jahresabschlussdokumente.',
+          'Antworte ausschliesslich als JSON gemaess Schema.',
+          'Keine Markdown-Ausgabe, keine zusaetzlichen Felder.',
+          'Alle Betragsangaben in TEUR.',
+        ].join(' '),
       },
-      temperature: 0.3,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => '');
-    console.error('OpenAI text generation error response:', errorBody);
-    const details = errorBody ? ` ${errorBody.slice(0, 800)}` : '';
-    throw new Error(`OpenAI request failed with status ${response.status}.${details}`);
-  }
+      { role: 'user', content: prompt },
+    ],
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'ai_texts',
+        strict: true,
+        schema: aiTextsJsonSchema,
+      },
+    },
+    temperature: 0.3,
+  };
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(extractOpenAiOutputText(await response.json()));
+    parsed = JSON.parse(extractOpenAiOutputText(await fetchOpenAiWithRetry(requestBody, apiKey)));
   } catch (err) {
-    throw new Error(`OpenAI returned invalid JSON: ${(err as Error).message}`);
+    return generateFallbackTexts(data, err);
   }
 
   const validated = AiTextsSchema.safeParse(parsed);

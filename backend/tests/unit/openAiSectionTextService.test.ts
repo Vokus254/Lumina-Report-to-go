@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildOpenAiSectionTextRequest, generateSectionText, generateSectionTextsForAnhang } from '../../services/openAiSectionTextService';
+import { renderAnhang } from '../../renderers/anhangRenderer.ts';
 import testData from '../fixtures/testData.json';
+import AdmZip from 'adm-zip';
 
 describe('openAiSectionTextService', () => {
   const originalFetch = global.fetch;
@@ -22,11 +24,16 @@ describe('openAiSectionTextService', () => {
     vi.restoreAllMocks();
   });
 
-  it('wirft kontrolliert, wenn OPENAI_API_KEY fehlt', async () => {
+  it('liefert Fallback, wenn OPENAI_API_KEY fehlt', async () => {
     delete process.env['OPENAI_API_KEY'];
 
-    await expect(generateSectionText({ sectionId: 'anhang_b4_eigenkapital' }))
-      .rejects.toThrow('OPENAI_API_KEY fehlt auf dem Server.');
+    const result = await generateSectionText({ sectionId: 'anhang_b4_eigenkapital', title: 'Eigenkapital' });
+
+    expect(result.warnings[0]).toContain('Fallback');
+    expect(result.paragraphs[0]).toEqual(expect.objectContaining({
+      type: 'unconfirmed',
+      requiresConfirmation: true,
+    }));
   });
 
   it('liefert valides Schema aus gemockter OpenAI-Antwort', async () => {
@@ -184,15 +191,18 @@ describe('openAiSectionTextService', () => {
     }));
   });
 
-  it('faengt ungueltige OpenAI-Antwort ab', async () => {
+  it('faengt ungueltige OpenAI-Antwort mit Fallback ab', async () => {
     process.env['OPENAI_API_KEY'] = 'test-key';
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ output_text: '{"sectionId":"x","status":"done"}' }),
     });
 
-    await expect(generateSectionText({ sectionId: 'x' }))
-      .rejects.toThrow('Invalid SectionTextOutput');
+    const result = await generateSectionText({ sectionId: 'x', title: 'Testabschnitt' });
+
+    expect(result.sectionId).toBe('x');
+    expect(result.warnings[0]).toContain('Fallback');
+    expect(result.paragraphs[0].type).toBe('unconfirmed');
   });
 
   it('trennt finalen Textentwurf von internen Pruefhinweisen im Systemprompt', async () => {
@@ -454,7 +464,7 @@ describe('openAiSectionTextService', () => {
     }));
   });
 
-  it('weist unconfirmed paragraph ohne requiresConfirmation=true ab', async () => {
+  it('ersetzt unconfirmed paragraph ohne requiresConfirmation=true durch Fallback', async () => {
     process.env['OPENAI_API_KEY'] = 'test-key';
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -479,8 +489,13 @@ describe('openAiSectionTextService', () => {
       }),
     });
 
-    await expect(generateSectionText({ sectionId: 'anhang.vorraete' }))
-      .rejects.toThrow('Invalid SectionTextOutput');
+    const result = await generateSectionText({ sectionId: 'anhang.vorraete' });
+
+    expect(result.warnings[0]).toContain('Fallback');
+    expect(result.paragraphs[0]).toEqual(expect.objectContaining({
+      type: 'unconfirmed',
+      requiresConfirmation: true,
+    }));
   });
 
   it('liefert Mock-SectionTexts fuer den Anhang ohne externen API-Call', async () => {
@@ -498,5 +513,91 @@ describe('openAiSectionTextService', () => {
     ]);
     expect(result['anhang.vorraete']?.paragraphs.some(paragraph => paragraph.type === 'confirmed')).toBe(true);
     expect(result['anhang.vorraete']?.paragraphs.some(paragraph => paragraph.type === 'unconfirmed' && paragraph.requiresConfirmation)).toBe(true);
+  });
+
+  it('isoliert einen OpenAI-Timeout und erzeugt fuer den betroffenen Abschnitt Fallback', async () => {
+    process.env['OPENAI_API_KEY'] = 'test-key';
+    const okResponse = (sectionId: string) => ({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          sectionId,
+          status: 'draft',
+          text: `KI-Text ${sectionId}`,
+          paragraphs: [
+            { type: 'confirmed', text: `KI-Text ${sectionId}`, source: 'facts', requiresConfirmation: false },
+          ],
+          warnings: [],
+          missingInputs: [],
+          reviewQuestions: [],
+          usedFacts: ['currentTotal'],
+        }),
+      }),
+    });
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      const prompt = String(body.input[1].content);
+      const sectionId = JSON.parse(prompt.split('Eingabedaten:\n')[1]).sectionId;
+      if (sectionId === 'anhang.forderungen') {
+        return {
+          ok: false,
+          status: 503,
+          text: async () => 'upstream connect error or disconnect/reset before headers. reset reason: connection timeout',
+        };
+      }
+      return okResponse(sectionId);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await generateSectionTextsForAnhang(testData);
+
+    expect(result['anhang.vorraete']?.warnings).toEqual([]);
+    expect(result['anhang.verbindlichkeiten']?.warnings).toEqual([]);
+    expect(result['anhang.forderungen']?.warnings[0]).toContain('Fallback');
+    expect(result['anhang.forderungen']?.paragraphs[0]).toEqual(expect.objectContaining({
+      type: 'unconfirmed',
+      requiresConfirmation: true,
+    }));
+
+    const aiTexts = {
+      lagebericht: {
+        geschaeftsmodell: '',
+        strategie: '',
+        gesamtwirtschaft: '',
+        geschaeftsverlauf: '',
+        ertragslage: '',
+        finanzlage: '',
+        vermoegenslage: '',
+        nachtragsbericht: '',
+        risiken: '',
+        chancen: '',
+        prognose: '',
+      },
+      anhang: {
+        rechtliche_grundlagen: 'Test.',
+        bilanzierungsgrundsaetze_intro: 'Test.',
+        bewertung_immaterielle: 'Test.',
+        bewertung_sachanlagen: 'Test.',
+        bewertung_vorraete: 'Test.',
+        bewertung_forderungen: 'Test.',
+        bewertung_rueckstellungen: 'Test.',
+        vorraete_kommentar: 'Test.',
+        forderungen_kommentar: 'Test.',
+        eigenkapital_kommentar: 'Test.',
+        rueckstellungen_kommentar: 'Test.',
+        verbindlichkeiten_kommentar: 'Test.',
+        umsatz_kommentar: 'Test.',
+        personal_kommentar: 'Test.',
+        derivate_kommentar: 'Test.',
+        nahestehende_kommentar: 'Test.',
+        ereignisse_nach_stichtag: 'Test.',
+        bestaetigung_pruefungsurteil: 'Test.',
+      },
+    };
+    const docx = await renderAnhang({ ...testData, reportTexts: {} } as any, aiTexts, result);
+    const xml = new AdmZip(docx).getEntry('word/document.xml')?.getData().toString('utf8') ?? '';
+
+    expect(xml).toContain('Die Forderungen beliefen sich');
+    expect(xml).toContain('w:highlight');
   });
 });

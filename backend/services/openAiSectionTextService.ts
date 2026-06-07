@@ -78,6 +78,9 @@ export type AnhangSectionTexts = Partial<Record<string, SectionTextOutput>>;
 
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 const DEFAULT_TEMPERATURE = 0.3;
+const OPENAI_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+const OPENAI_RETRY_DELAYS_MS = [1000, 3000, 6000];
+const OPENAI_TIMEOUT_MS = 45000;
 
 type SectionPromptRules = {
   textGoal: string;
@@ -998,6 +1001,111 @@ function buildUserPrompt(input: GenerateSectionTextInput): string {
   ].join('\n');
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableOpenAiError(error: unknown): boolean {
+  const err = error as { status?: number; name?: string; message?: string };
+  const msg = String(err?.message ?? '').toLowerCase();
+  return (
+    err?.name === 'AbortError' ||
+    msg.includes('timeout') ||
+    msg.includes('connection timeout') ||
+    msg.includes('disconnect/reset') ||
+    (typeof err?.status === 'number' && OPENAI_RETRY_STATUSES.has(err.status))
+  );
+}
+
+async function fetchOpenAiWithRetry(requestBody: unknown, apiKey: string, sectionId: string): Promise<unknown> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        console.error(`OpenAI section text error response (${sectionId}, attempt ${attempt}/3):`, errorBody);
+        const details = errorBody ? ` ${errorBody.slice(0, 800)}` : '';
+        const error = new Error(`OpenAI request failed with status ${response.status}.${details}`) as Error & { status?: number };
+        error.status = response.status;
+        throw error;
+      }
+
+      return response.json();
+    } catch (err) {
+      lastError = err;
+      console.error(`OpenAI section text failed (${sectionId}, attempt ${attempt}/3):`, err);
+      if (attempt >= 3 || !isRetryableOpenAiError(err)) break;
+      await sleep(OPENAI_RETRY_DELAYS_MS[attempt - 1] ?? 6000);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function factsRecord(input: GenerateSectionTextInput): Record<string, unknown> {
+  if (!input.facts) return {};
+  if (!Array.isArray(input.facts)) return input.facts;
+
+  return Object.fromEntries(input.facts.map(fact => {
+    const [rawKey, ...rest] = String(fact).split(':');
+    const key = rawKey.trim();
+    const rawValue = rest.join(':').trim();
+    const numeric = Number(rawValue.replace(/\./g, '').replace(',', '.'));
+    return [key, rawValue !== '' && Number.isFinite(numeric) ? numeric : rawValue];
+  }).filter(([key]) => key));
+}
+
+function formatTeur(value: unknown): string {
+  const n = num(value);
+  return Math.round(n).toLocaleString('de-DE');
+}
+
+function fallbackSectionText(input: GenerateSectionTextInput, reason: unknown): SectionTextOutput {
+  const facts = factsRecord(input);
+  const current = num(facts['currentTotal']);
+  const previous = num(facts['previousTotal']);
+  const change = facts['changeAmount'] !== undefined ? num(facts['changeAmount']) : current - previous;
+  const percentValue = facts['changePercent'] !== undefined ? num(facts['changePercent']) : changePercent(current, previous);
+  const percent = percentValue === null ? '-' : `${percentValue.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
+  const title = input.title || input.sectionId.replace(/^anhang\.guv\./, '').replace(/^anhang\./, '').replace(/_/g, ' ');
+  const text = `Die ${title} beliefen sich im Geschaeftsjahr auf ${formatTeur(current)} TEUR gegenueber ${formatTeur(previous)} TEUR im Vorjahr. Dies entspricht einer Veraenderung um ${formatTeur(change)} TEUR beziehungsweise ${percent}. Die Entwicklung ist im Rahmen der weiteren Abschlussarbeiten zu analysieren und hinsichtlich wesentlicher Einzelposten zu erlaeutern.`;
+  const reasonText = reason instanceof Error ? reason.message : String(reason);
+
+  return SectionTextOutputSchema.parse({
+    sectionId: input.sectionId,
+    status: 'draft',
+    text,
+    paragraphs: [
+      {
+        type: 'unconfirmed',
+        text,
+        source: 'missing_input_notice',
+        requiresConfirmation: true,
+      },
+    ],
+    warnings: [`Fallback / manuell zu pruefen: OpenAI konnte diesen Abschnitt nicht erzeugen. ${reasonText}`],
+    missingInputs: ['KI-Text wurde durch Fallback ersetzt; Abschnitt fachlich pruefen und bei Bedarf manuell ergaenzen.'],
+    reviewQuestions: ['Sind die Veraenderung und wesentliche Einzelposten fachlich plausibel und vollstaendig erlaeutert?'],
+    usedFacts: ['currentTotal', 'previousTotal', 'changeAmount', 'changePercent'],
+  });
+}
+
 function num(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
@@ -1162,7 +1270,10 @@ export async function generateSectionTextsForAnhang(data: JahresabschlussData): 
   }
 
   const entries = await Promise.all(buildAnhangSectionRequests(data).map(async request => {
-    const output = await generateSectionText(request);
+    const output = await generateSectionText(request).catch(err => {
+      console.error(`Anhang section fallback used (${request.sectionId}):`, err);
+      return fallbackSectionText(request, err);
+    });
     return [request.sectionId, output] as const;
   }));
 
@@ -1172,32 +1283,16 @@ export async function generateSectionTextsForAnhang(data: JahresabschlussData): 
 export async function generateSectionText(input: GenerateSectionTextInput): Promise<SectionTextOutput> {
   const apiKey = process.env['OPENAI_API_KEY'];
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY fehlt auf dem Server.');
+    return fallbackSectionText(input, new Error('OPENAI_API_KEY fehlt auf dem Server.'));
   }
 
   const requestBody = buildOpenAiSectionTextRequest(input);
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => '');
-    console.error('OpenAI section text error response:', errorBody);
-    const details = errorBody ? ` ${errorBody.slice(0, 800)}` : '';
-    throw new Error(`OpenAI request failed with status ${response.status}.${details}`);
-  }
-
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(extractOutputText(await response.json()));
+    const responseJson = await fetchOpenAiWithRetry(requestBody, apiKey, input.sectionId);
+    const parsed = JSON.parse(extractOutputText(responseJson));
+    return SectionTextOutputSchema.parse(parsed);
   } catch (err) {
-    throw new Error(`Invalid OpenAI section text response: ${(err as Error).message}`);
+    console.error(`OpenAI section text fallback used (${input.sectionId}):`, err);
+    return fallbackSectionText(input, err);
   }
-
-  return SectionTextOutputSchema.parse(parsed);
 }

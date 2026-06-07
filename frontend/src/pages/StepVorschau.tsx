@@ -25,6 +25,7 @@ type SectionTextResult = {
 
 type AssistantSectionId = string;
 type DataStatus = 'vollständig' | 'teilweise' | 'fehlt';
+type SectionGenerationStatus = 'idle' | 'loading' | 'done' | 'fallback' | 'error';
 type RequestSection = {
   sectionId: AssistantSectionId;
   title: string;
@@ -202,6 +203,18 @@ function buildDrivers(items: Array<{ label: string; current: number; previous: n
     }))
     .filter(item => item.current !== 0 || item.previous !== 0)
     .sort((a: any, b: any) => Math.abs(b.changeAmount) - Math.abs(a.changeAmount));
+}
+
+function isFallbackResult(result: SectionTextResult): boolean {
+  return result.warnings.some(warning => warning.toLowerCase().includes('fallback'));
+}
+
+function sectionGenerationStatusLabel(status: SectionGenerationStatus): string {
+  if (status === 'done') return 'KI-Text erzeugt';
+  if (status === 'fallback') return 'Fallback verwendet';
+  if (status === 'error') return 'Fehler - manuelle Bearbeitung erforderlich';
+  if (status === 'loading') return 'KI-Text wird erzeugt';
+  return 'Noch nicht erzeugt';
 }
 
 function standardRequirements(positionName: string) {
@@ -1084,7 +1097,7 @@ function buildSectionTextRequest(sectionId: AssistantSectionId, data: Jahresabsc
 
 export default function StepVorschau({ data, onChange, onArrayChange, onTransferReportText }: StepProps) {
   const { stammdaten, guv, bilanz, kennzahlen, segmente, organe } = data;
-  const [sectionStatus, setSectionStatus] = useState<Record<AssistantSectionId, 'idle' | 'loading' | 'done' | 'error'>>({
+  const [sectionStatus, setSectionStatus] = useState<Record<AssistantSectionId, SectionGenerationStatus>>({
     'anhang.bewertungsgrundsaetze': 'idle',
     'anhang.vorraete': 'idle',
     'anhang.forderungen': 'idle',
@@ -1214,7 +1227,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
         ...prev,
         [sectionId]: result,
       }));
-      setSectionStatus(prev => ({ ...prev, [sectionId]: 'done' }));
+      setSectionStatus(prev => ({ ...prev, [sectionId]: isFallbackResult(result) ? 'fallback' : 'done' }));
       return { request, result };
     } catch (err) {
       setSectionErrors(prev => ({ ...prev, [sectionId]: shortErrorMessage((err as Error).message) }));
@@ -1463,6 +1476,7 @@ export default function StepVorschau({ data, onChange, onArrayChange, onTransfer
                       <div>
                         <div style={styles.assistantSectionTitle}>{section.title}</div>
                         <div style={styles.assistantMeta}>Datenstatus: {request.dataStatus}</div>
+                        <div style={styles.assistantMeta}>KI-Status: {sectionGenerationStatusLabel(status)}</div>
                         {isWorkbench && (
                           <>
                             <div style={styles.assistantMeta}>Status: {workbenchStatus}</div>
