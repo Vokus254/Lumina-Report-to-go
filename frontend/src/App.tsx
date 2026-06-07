@@ -22,21 +22,21 @@ const REPORT_CARDS = [
   {
     id: 'express' as ShellScreen,
     title: 'Lumina Report Express',
-    text: 'Schneller Finanzbericht aus BWA, Bilanz oder GuV - mit Management Summary, Kennzahlen, Ampelstatus und Auffaelligkeiten.',
+    text: 'Schneller Finanzbericht aus BWA, Bilanz oder GuV – mit Management Summary, Kennzahlen, Ampelstatus und Auffälligkeiten.',
     status: 'Empfohlen',
     hint: '2 Credits / 19,99 EUR',
   },
   {
     id: 'reportPro' as ShellScreen,
     title: 'Lumina Report Pro',
-    text: 'Ausfuehrlicher Monats- oder Quartalsbericht mit Kennzahlen, Abweichungen und Handlungsempfehlungen.',
-    status: 'Demnaechst',
+    text: 'Ausführlicher Monats- oder Quartalsbericht mit Kennzahlen, Abweichungen und Handlungsempfehlungen.',
+    status: 'Demnächst',
     hint: '5 Credits / 49,99 EUR',
   },
   {
     id: 'abschluss' as ShellScreen,
     title: 'Lumina Abschluss Pro',
-    text: 'HGB-orientierter Jahresabschlussentwurf mit Anhang, Lagebericht und offenen Pruef-/Bestaetigungspunkten.',
+    text: 'HGB-orientierter Jahresabschlussentwurf mit Anhang, Lagebericht und offenen Prüf-/Bestätigungspunkten.',
     status: '',
     hint: '20 Credits / 199 EUR',
   },
@@ -54,7 +54,8 @@ styleTag.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(styleTag);
 
 function fmt(value: number | undefined): string {
-  return Math.round(Number(value || 0)).toLocaleString('de-DE');
+  const n = Number(value || 0);
+  return n > 0 ? Math.round(n).toLocaleString('de-DE') : 'offen';
 }
 
 export default function App() {
@@ -240,26 +241,28 @@ export default function App() {
     if (active === 'guv') {
       const material = (g.material_roh || 0) + (g.material_dienst || 0);
       const gesamtleistung = (g.umsatzerloese || 0) + (g.bestandsveraenderung || 0) + (g.eigenleistungen || 0) + (g.sonstige_ertraege || 0);
+      const hasGuVValues = (g.umsatzerloese || 0) > 0 || gesamtleistung > 0 || material > 0;
       return [
         ['Umsatzerlöse', fmt(g.umsatzerloese)],
         ['Gesamtleistung', fmt(gesamtleistung)],
         ['Materialaufwand', fmt(material)],
-        ['Datenqualität', 'bearbeitbar'],
+        ['Datenqualität', hasGuVValues ? 'bearbeitbar' : 'noch nicht importiert'],
       ];
     }
     if (active === 'bilanz') {
       const aktiva = Number(b.bilanzsumme || 0);
       const passiva = Number(b.eigenkapital || 0) + Number(b.rueckstellungen || 0) + Number(b.verbindlichkeiten || 0);
+      const hasBilanzValues = aktiva > 0 || passiva > 0;
       return [
         ['Bilanzsumme', fmt(aktiva)],
-        ['Bilanz ausgeglichen', Math.abs(aktiva - passiva) < 2 ? 'ja' : 'prüfen'],
+        ['Bilanz ausgeglichen', hasBilanzValues ? (Math.abs(aktiva - passiva) < 2 ? 'ja' : 'prüfen') : 'noch nicht importiert'],
         ['Aktiva', fmt(aktiva)],
         ['Passiva', fmt(passiva)],
       ];
     }
     return [
-      ['Übernommene Texte', String(reportTextCount)],
-      ['Standard-/Fallbacktexte', 'exportfähig'],
+      ['Berichtstexte', reportTextCount > 0 ? String(reportTextCount) : 'vorhanden'],
+      ['Standard-/Fallbacktexte', 'Standardtexte verwendet'],
       ['Exportbereitschaft', 'gegeben'],
       ['Manuell zu prüfen', 'vor Freigabe'],
     ];
