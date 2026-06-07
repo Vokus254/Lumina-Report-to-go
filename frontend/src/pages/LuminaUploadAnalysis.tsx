@@ -350,7 +350,7 @@ export default function LuminaUploadAnalysis() {
                   const mapping = asRecord(item);
                   return [
                     text(mapping.quelle_bezeichnung, '-'),
-                    formatAmount(mapping.erkannter_wert),
+                    formatAmount(mapping.erkannter_wert_eur ?? mapping.erkannter_wert),
                     formatAmount(mapping.vorjahr),
                     text(mapping.vorgeschlagene_hgb_position, '-'),
                     text(mapping.begruendung, '-'),
