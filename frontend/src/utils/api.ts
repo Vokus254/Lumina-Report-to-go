@@ -12,16 +12,11 @@ export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-const PILOT_CODE_STORAGE_KEY = 'luminaPilotAccessCode';
+export const PILOT_CODE_STORAGE_KEY = 'luminaPilotAccessCode';
+export const PILOT_ACCESS_INVALID_EVENT = 'luminaPilotAccessInvalid';
 
 function getPilotAccessCode(): string {
-  const existing = window.localStorage.getItem(PILOT_CODE_STORAGE_KEY);
-  if (existing) return existing;
-
-  const entered = window.prompt('Bitte Pilot-Zugangscode eingeben.');
-  const code = (entered || '').trim();
-  if (code) window.localStorage.setItem(PILOT_CODE_STORAGE_KEY, code);
-  return code;
+  return window.localStorage.getItem(PILOT_CODE_STORAGE_KEY) || '';
 }
 
 function friendlyApiError(status: number, message: string): string {
@@ -48,6 +43,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
   if (response.status === 401) {
     window.localStorage.removeItem(PILOT_CODE_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(PILOT_ACCESS_INVALID_EVENT));
   }
 
   return response;

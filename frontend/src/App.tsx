@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import StepStammdaten from './pages/StepStammdaten';
 import StepSegmente   from './pages/StepSegmente';
 import StepGuV        from './pages/StepGuV';
@@ -6,6 +6,7 @@ import StepBilanz     from './pages/StepBilanz';
 import StepVorschau   from './pages/StepVorschau';
 import { useJahresabschluss } from './hooks/useJahresabschluss';
 import type { StepProps } from './types';
+import { PILOT_ACCESS_INVALID_EVENT, PILOT_CODE_STORAGE_KEY } from './utils/api';
 
 const STEPS: { id: string; label: string; icon: string; component: React.ComponentType<StepProps> }[] = [
   { id: 'stammdaten', label: 'Stammdaten',       icon: '🏢', component: StepStammdaten },
@@ -21,6 +22,9 @@ styleTag.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(styleTag);
 
 export default function App() {
+  const [pilotCodeInput, setPilotCodeInput] = useState('');
+  const [showPilotModal, setShowPilotModal] = useState(() => !window.localStorage.getItem(PILOT_CODE_STORAGE_KEY));
+  const [pilotMessage, setPilotMessage] = useState('');
   const {
     data, step, setStep,
     status, errorMsg, loadingMsg,
@@ -31,6 +35,36 @@ export default function App() {
   } = useJahresabschluss();
 
   const CurrentStep = STEPS[step].component;
+
+  useEffect(() => {
+    const handleInvalidAccess = () => {
+      setPilotMessage('Der Zugriffscode ist ungültig oder abgelaufen.');
+      setPilotCodeInput('');
+      setShowPilotModal(true);
+    };
+
+    window.addEventListener(PILOT_ACCESS_INVALID_EVENT, handleInvalidAccess);
+    return () => window.removeEventListener(PILOT_ACCESS_INVALID_EVENT, handleInvalidAccess);
+  }, []);
+
+  const unlockPilotAccess = () => {
+    const code = pilotCodeInput.trim();
+    if (!code) {
+      setPilotMessage('Bitte geben Sie den Zugangscode ein.');
+      return;
+    }
+
+    window.localStorage.setItem(PILOT_CODE_STORAGE_KEY, code);
+    setPilotMessage('');
+    setShowPilotModal(false);
+  };
+
+  const resetPilotAccess = () => {
+    window.localStorage.removeItem(PILOT_CODE_STORAGE_KEY);
+    setPilotCodeInput('');
+    setPilotMessage('');
+    setShowPilotModal(true);
+  };
 
   return (
     <div style={S.root}>
@@ -54,6 +88,9 @@ export default function App() {
             {data.stammdaten.firmenname && (
               <div style={S.companyChip}>{data.stammdaten.firmenname}</div>
             )}
+            <button type="button" style={S.accessBtn} onClick={resetPilotAccess}>
+              Zugangscode ändern
+            </button>
           </div>
         </div>
       </div>
@@ -124,6 +161,31 @@ export default function App() {
           </div>
         </div>
       </div>
+      {showPilotModal && (
+        <div style={S.modalOverlay}>
+          <form
+            style={S.modal}
+            onSubmit={(event) => {
+              event.preventDefault();
+              unlockPilotAccess();
+            }}
+          >
+            <h2 style={S.modalTitle}>Pilot-Zugangscode eingeben</h2>
+            <p style={S.modalText}>Diese Lumina-Version ist für den kontrollierten Pilotbetrieb geschützt.</p>
+            <label style={S.modalLabel} htmlFor="pilot-access-code">Zugangscode</label>
+            <input
+              id="pilot-access-code"
+              type="password"
+              value={pilotCodeInput}
+              onChange={(event) => setPilotCodeInput(event.target.value)}
+              style={S.modalInput}
+              autoFocus
+            />
+            {pilotMessage && <div style={S.modalError}>{pilotMessage}</div>}
+            <button type="submit" style={S.modalButton}>Zugang freischalten</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -138,6 +200,7 @@ const S: Record<string, React.CSSProperties> = {
   logoSub:        { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
   headerRight:    { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' },
   importBtn:      { background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' },
+  accessBtn:      { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   importOk:       { fontSize: 12, color: '#A7F3D0', fontWeight: 600 },
   importErr:      { fontSize: 12, color: '#FCA5A5', fontWeight: 600 },
   companyChip:    { background: 'rgba(255,255,255,0.15)', color: '#fff', padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600 },
@@ -165,4 +228,12 @@ const S: Record<string, React.CSSProperties> = {
   loadingText:    { fontSize: 13, color: '#1D4ED8', fontStyle: 'italic' },
   errorBox:       { padding: '8px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 13, color: '#DC2626' },
   successBox:     { padding: '8px 14px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 8, fontSize: 13, color: '#065F46', fontWeight: 600 },
+  modalOverlay:   { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(17,24,39,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  modal:          { width: '100%', maxWidth: 420, background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', padding: 24, boxShadow: '0 20px 50px rgba(15,23,42,0.25)' },
+  modalTitle:     { margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: '#111827' },
+  modalText:      { margin: '0 0 18px', fontSize: 14, color: '#4B5563', lineHeight: 1.5 },
+  modalLabel:     { display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 700, color: '#1F3864' },
+  modalInput:     { width: '100%', boxSizing: 'border-box', border: '1px solid #D1D5DB', borderRadius: 8, padding: '10px 12px', fontSize: 15, fontFamily: 'inherit' },
+  modalError:     { marginTop: 10, padding: '8px 10px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 13, color: '#B91C1C' },
+  modalButton:    { width: '100%', marginTop: 16, background: '#2E75B6', color: '#fff', border: 'none', borderRadius: 8, padding: '11px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
 };
